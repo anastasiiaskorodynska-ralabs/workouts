@@ -78,12 +78,16 @@ Rules:
 
 ## Publishing to the website (GitHub Pages)
 
-The site is hosted on GitHub Pages from this folder's git repository (branch `main`). After any change:
+The site is hosted on GitHub Pages from this folder's git repository (branch `main`):
+- Repository: https://github.com/anastasiiaskorodynska-ralabs/workouts
+- Website: https://anastasiiaskorodynska-ralabs.github.io/workouts/
+
+After any change (in PowerShell; the two env vars let the GitHub sign-in window appear if needed):
 
 ```
 git add -A
 git commit -m "Short description of the change"
-git push
+$env:GIT_TERMINAL_PROMPT = '1'; $env:GCM_INTERACTIVE = 'always'; git push
 ```
 
 The phone shows the new version about 1 minute later (pull down to refresh). If the push fails because of login, ask the owner to run `gh auth login` in the terminal and walk them through it step by step.
