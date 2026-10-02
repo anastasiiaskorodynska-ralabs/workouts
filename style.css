@@ -52,7 +52,25 @@ body {
 main {
   max-width: 640px;
   margin: 0 auto;
-  padding: calc(20px + env(safe-area-inset-top)) 16px calc(96px + env(safe-area-inset-bottom));
+  padding: 0 16px calc(96px + env(safe-area-inset-bottom));
+}
+
+/* Language switch (top right) */
+.topbar {
+  max-width: 640px; margin: 0 auto;
+  padding: calc(12px + env(safe-area-inset-top)) 16px 4px;
+  display: flex; justify-content: flex-end;
+}
+.lang { display: inline-flex; background: var(--line); border-radius: 99px; padding: 3px; }
+.lang button {
+  font: inherit; font-size: 13px; font-weight: 700; letter-spacing: .03em;
+  border: 0; background: transparent; color: var(--muted);
+  padding: 7px 14px; border-radius: 99px; cursor: pointer; min-width: 52px;
+}
+.lang button[aria-pressed="true"] { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
+.fallback {
+  font-size: 14px; background: var(--accent-soft); color: var(--ink);
+  border-radius: 12px; padding: 10px 12px; margin: 0 0 14px;
 }
 a { color: var(--accent); }
 h1 { font-size: 28px; line-height: 1.15; margin: 4px 0 4px; letter-spacing: -.01em; }

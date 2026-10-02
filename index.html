@@ -12,20 +12,27 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div class="topbar">
+    <div class="lang" role="group" aria-label="Language / Мова">
+      <button type="button" data-lang="en" aria-pressed="true">EN</button>
+      <button type="button" data-lang="uk" aria-pressed="false">УКР</button>
+    </div>
+  </div>
+
   <main id="app" aria-live="polite"></main>
 
   <nav class="tabs" aria-label="Main">
     <a href="#/" data-tab="week">
       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4M8.5 15l2 2 4-4"/></svg>
-      <span>This Week</span>
+      <span data-i18n="tabWeek">This Week</span>
     </a>
     <a href="#/history" data-tab="history">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-      <span>Past Weeks</span>
+      <span data-i18n="tabHistory">Past Weeks</span>
     </a>
     <a href="#/profile" data-tab="profile">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-      <span>Profile</span>
+      <span data-i18n="tabProfile">Profile</span>
     </a>
   </nav>
 

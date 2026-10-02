@@ -1,14 +1,23 @@
 # Workout site — instructions for Claude
 
-This is a personal workout website. The owner has **no coding experience**: explain every step in plain, simple language, do all the technical work yourself, and avoid jargon. Everything (site, plans, notes) is in **English**.
+This is a personal workout website. The owner has **no coding experience**: explain every step in plain, simple language, do all the technical work yourself, and avoid jargon. Talk to the owner in English.
+
+## Two languages: English + Ukrainian
+
+The site has an **EN | УКР** switch. Every content file exists twice: the English file (`name.md`) and the Ukrainian file next to it (`name.uk.md`).
+- **Whenever you create or change a plan, history file or the profile, update both versions.**
+- The two versions must have **exactly the same structure**: same days, same `###` rounds, same exercises in the same order, same numbers. Checkbox ticks are stored by position, so a mismatch would put ticks on the wrong exercise.
+- The English file is the main one: Claude reads it for planning. The Ukrainian file is a translation of it.
+- Ukrainian style: informal "ти" form, like a trainer talking ("Тримаєш гирю…"). Day headings: `## Вівторок — Низ`, `## Четвер — Верх`, `## Субота — Функціональні кола`; rounds `### Коло 1 — …`; notes sections `## Що змінилося і чому` (plans) and `## Нотатки` (history). Use `кг`, `с`, and `,` as the decimal mark (12,5 кг).
+- If the owner pastes a summary in Ukrainian, use it the same way as an English one.
 
 ## How the project works
 
 | File / folder | What it is |
 |---|---|
-| `profile.md` | Goals, schedule, equipment, rules, limits. Read it before every plan. |
-| `plans/YYYY-MM-DD.md` | Upcoming week's plan. The date is that week's **Monday**. |
-| `history/YYYY-MM-DD.md` | A finished week, same format, with each exercise marked done `[x]` or skipped `[ ]`. |
+| `profile.md` (+ `profile.uk.md`) | Goals, schedule, equipment, rules, limits. Read it before every plan. |
+| `plans/YYYY-MM-DD.md` (+ `.uk.md`) | Upcoming week's plan. The date is that week's **Monday**. |
+| `history/YYYY-MM-DD.md` (+ `.uk.md`) | A finished week, same format, with each exercise marked done `[x]` or skipped `[ ]`. |
 | `weeks.json` | List of the dates in `plans/` and `history/`. **The website only shows weeks listed here**, so always keep it up to date. |
 | `index.html`, `style.css`, `app.js` | The website. It reads the Markdown files above; there's no build step. |
 | `.claude/serve.ps1` | Small local web server for previewing (`preview_start` with the name `workout-site`). |
@@ -65,12 +74,13 @@ Rules:
    - If the notes say something was too hard, was skipped, or hurt, keep it the same or make it easier.
    - About every 4–6 weeks, swap 1–2 exercises per day for a similar alternative to keep things fresh, and plan an easier (deload) week with ~10–20% lower weights.
 4. Start the file with `## What changed and why`: 2–5 short bullets explaining the changes in plain words.
-5. Add the date to `"plans"` in `weeks.json`.
-6. Publish the update to the website (see "Publishing" below) and tell the owner in simple words what changed.
+5. Write the Ukrainian version `plans/<that-date>.uk.md` with the identical structure (see "Two languages").
+6. Add the date to `"plans"` in `weeks.json`.
+7. Publish the update to the website (see "Publishing" below) and tell the owner in simple words what changed.
 
 ## When the owner says "finish the week" (often pasting the summary from the site)
 
-1. Move the plan from `plans/<date>.md` to `history/<date>.md`.
+1. Move the plan from `plans/<date>.md` to `history/<date>.md`, and the same for `plans/<date>.uk.md` → `history/<date>.uk.md`. Apply steps 2–3 to both versions (Ukrainian notes heading: `## Нотатки`).
 2. Mark each exercise `[x]` if it was done, `[ ]` if not (use the pasted summary; if there's none, ask).
 3. Replace `## What changed and why` with `## Notes` containing the owner's feedback (what felt easy or hard, changed weights). If they used different weights than planned, update the numbers in the history file.
 4. Move the date from `"plans"` to `"history"` in `weeks.json`.
