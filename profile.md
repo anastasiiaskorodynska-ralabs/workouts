@@ -1,26 +1,43 @@
 # My Profile
 
+## Goal
+Get stronger, lose weight and build a fit body
+
 ## About me
 - **Age:** 25
+- **Experience:** 2 yrs
 - **Sex:** Female
-- **Experience:** 2 years of regular gym training with a trainer
-- **Goals:** strength, weight loss, fit body
 
 ## Schedule
-3 workouts per week, about 1 hour each:
-
 - **Tuesday:** Lower body
 - **Thursday:** Upper body
-- **Saturday:** Functional circuit training (3 rounds × 3 exercises)
+- **Saturday:** Functional circuits
+
+3 days a week · about 60 min
 
 ## Equipment
-Full gym: barbells, dumbbells, kettlebells, plates, cable machines, leg press, leg curl, back extension bench, pull-up bar, fitball, medicine ball.
+- Barbells
+- Dumbbells
+- Kettlebells
+- Plates
+- Cable machines
+- Leg press
+- Leg curl machine
+- Back extension bench
+- Pull-up bar
+- Fitball
+- Medicine ball
 
 ## Rules for my plans
 - No treadmill, elliptical or other cardio machines
 - No warm-up section
 - Every workout ends with an abs exercise
-- Keep the pattern: Tuesday lower body, Thursday upper body, Saturday functional circuits
+- Keep the pattern: Tuesday lower body, Thursday upper body, Saturday circuits
 
 ## Limits
 - No injuries or limits right now
+
+## Key lifts
+- Romanian deadlift
+- Leg press
+- Bulgarian split squat

@@ -1,83 +1,87 @@
 // My Workouts — reads the Markdown files in plans/, history/ and profile.md
-// and shows them as phone-friendly pages. Checkbox ticks are saved on this device.
-// Ukrainian versions live next to the English ones with a ".uk.md" ending.
+// and shows them as phone screens. Ticks, notes and settings are saved on this device.
+// Ukrainian versions of the files live next to the English ones with a ".uk.md" ending.
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const DAYS_UK = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', "П'ятниця", 'Субота', 'Неділя'];
 const app = document.getElementById('app');
-const CHECK_SVG = '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
-const CHEV_SVG = '<svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>';
+const dock = document.getElementById('dock');
+const overlay = document.getElementById('overlay');
 
-// ---------- language ----------
+const ICON = {
+  check: '<svg class="ic" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  arrow: '<svg class="ic" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+  back: '<svg class="ic" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>',
+  chev: '<svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>',
+  info: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>',
+  lock: '<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
+};
+
+// ---------- words in both languages ----------
+
+const plural = (n, one, few, many) => {
+  const a = n % 10, b = n % 100;
+  return a === 1 && b !== 11 ? one : a >= 2 && a <= 4 && (b < 12 || b > 14) ? few : many;
+};
 
 const TEXT = {
   en: {
-    tabWeek: 'This Week', tabHistory: 'Past Weeks', tabProfile: 'Profile',
-    thisWeek: 'This week', nextWeek: 'Next week', latestPlan: 'Latest plan', plan: 'Plan', finishedWeek: 'Finished week',
-    tapHint: 'Tap an exercise to tick it off.',
-    progress: (d, t) => `${d} of ${t} exercises done`,
-    today: 'Today',
+    thisWeek: 'This week', nextWeek: 'Next week', plan: 'Plan', week: 'Week',
+    history: 'History', profile: 'Profile',
+    sessionsDone: 'sessions done', today: 'Today', upNext: 'Up next',
+    done: 'Done', upcoming: 'Upcoming', missed: 'Not logged', skipped: 'Skipped',
+    partial: (d, t) => `${d}/${t} sets`,
+    exercises: n => `${n} exercise${n === 1 ? '' : 's'}`,
+    setsN: n => `${n} set${n === 1 ? '' : 's'}`,
+    coach: "Coach's note", coachBy: '— Claude',
+    setsReps: 'Sets × reps', weight: 'Weight', rest: 'Rest',
+    finish: 'Finish workout', resting: 'Rest', go: 'Go!', skip: 'Skip', next: 'Next', set: 'set', setsWord: 'sets',
+    wellDone: 'Workout done', sets: 'Sets', volume: 'Volume', time: 'Time', kg: 'kg', min: 'min',
+    backToWeek: 'Back to this week',
+    keyLifts: 'Key lifts', since: 'since week 1', pastWeeks: 'Past weeks', noHistory: 'No finished weeks yet.', weekShort: 'W',
+    readOnly: 'Read-only. To change anything, just tell Claude in chat.',
+    settings: 'App settings', language: 'Language', theme: 'Theme', dark: 'Dark', light: 'Light',
+    days3: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
     endTitle: 'End of the week',
-    endHint: 'Write how it went (what felt easy or hard, weights you changed). Then tap the button and paste the text to Claude with “finish the week”.',
+    endHint: 'Write how it went: what felt easy or hard, weights you changed. Then copy the summary and paste it to Claude with “finish the week”.',
     endPlaceholder: 'e.g. Romanian deadlift felt easy, shoulders tired on Thursday',
-    copyBtn: 'Copy summary for Claude',
-    copied: 'Copied! Paste it to Claude.', copyFail: 'Could not copy — try again',
-    dayDone: day => `${day} done — great work! 💪`,
-    seeNext: 'See next week’s plan →',
-    back: '← Past Weeks',
-    legend: '✓ done · – skipped', done: 'Done', skipped: 'Skipped',
-    noHistory: 'No finished weeks yet.',
-    historyCount: n => `${n} finished week${n === 1 ? '' : 's'}`,
-    weekOf: 'Week of',
-    profileHint: 'Edit <code>profile.md</code> (or ask Claude) to change this.',
+    copyBtn: 'Copy summary for Claude', copied: 'Copied! Paste it to Claude.', copyFail: 'Could not copy — try again',
+    nextReady: 'Next week’s plan is ready',
     noPlan: 'No plan yet.<br>Ask Claude to “plan next week”.',
     error: 'Something went wrong loading your files.',
-    fallback: '',
     sumTitle: iso => `Week of ${iso} — results`,
-    sumDay: (day, d, t, missed) => `${day}: ${d}/${t} done${missed.length ? ` (not done: ${missed.join(', ')})` : ''}`,
-    sumNotes: 'My notes',
+    sumNotes: 'My notes', sumNotLogged: 'nothing ticked',
   },
   uk: {
-    tabWeek: 'Цей тиждень', tabHistory: 'Минулі тижні', tabProfile: 'Профіль',
-    thisWeek: 'Цей тиждень', nextWeek: 'Наступний тиждень', latestPlan: 'Останній план', plan: 'План', finishedWeek: 'Завершений тиждень',
-    tapHint: 'Натисни на вправу, щоб відмітити її.',
-    progress: (d, t) => `Виконано ${d} з ${t} вправ`,
-    today: 'Сьогодні',
+    thisWeek: 'Цей тиждень', nextWeek: 'Наступний тиждень', plan: 'План', week: 'Тиждень',
+    history: 'Історія', profile: 'Профіль',
+    sessionsDone: 'тренувань виконано', today: 'Сьогодні', upNext: 'Далі',
+    done: 'Виконано', upcoming: 'Заплановано', missed: 'Не відмічено', skipped: 'Пропущено',
+    partial: (d, t) => `${d}/${t} підх.`,
+    exercises: n => `${n} ${plural(n, 'вправа', 'вправи', 'вправ')}`,
+    setsN: n => `${n} ${plural(n, 'підхід', 'підходи', 'підходів')}`,
+    coach: 'Нотатка тренера', coachBy: '— Claude',
+    setsReps: 'Підходи × повт.', weight: 'Вага', rest: 'Відпочинок',
+    finish: 'Завершити тренування', resting: 'Відпочинок', go: 'Час!', skip: 'Далі', next: 'Далі', set: 'підхід', setsWord: 'підходів',
+    wellDone: 'Тренування завершено', sets: 'Підходи', volume: 'Обʼєм', time: 'Час', kg: 'кг', min: 'хв',
+    backToWeek: 'До цього тижня',
+    keyLifts: 'Ключові вправи', since: 'з 1-го тижня', pastWeeks: 'Минулі тижні', noHistory: 'Ще немає завершених тижнів.', weekShort: 'Т',
+    readOnly: 'Лише перегляд. Щоб щось змінити, напиши Claude в чаті.',
+    settings: 'Налаштування', language: 'Мова', theme: 'Тема', dark: 'Темна', light: 'Світла',
+    days3: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'],
     endTitle: 'Кінець тижня',
-    endHint: 'Напиши, як пройшов тиждень (що було легко чи важко, які ваги змінила). Потім натисни кнопку і встав текст у чат з Claude зі словами “finish the week”.',
+    endHint: 'Напиши, як пройшов тиждень: що було легко чи важко, які ваги змінила. Потім скопіюй підсумок і встав його в чат з Claude зі словами “finish the week”.',
     endPlaceholder: 'напр. румунська тяга була легкою, у четвер втомилися плечі',
-    copyBtn: 'Скопіювати підсумок для Claude',
-    copied: 'Скопійовано! Встав у чат з Claude.', copyFail: 'Не вдалося скопіювати — спробуй ще раз',
-    dayDone: day => `${day} — виконано, чудова робота! 💪`,
-    seeNext: 'План на наступний тиждень →',
-    back: '← Минулі тижні',
-    legend: '✓ виконано · – пропущено', done: 'Виконано', skipped: 'Пропущено',
-    noHistory: 'Ще немає завершених тижнів.',
-    historyCount: n => `Завершених тижнів: ${n}`,
-    weekOf: 'Тиждень від',
-    profileHint: 'Щоб змінити, відредагуй <code>profile.uk.md</code> (або попроси Claude).',
+    copyBtn: 'Скопіювати підсумок для Claude', copied: 'Скопійовано! Встав у чат з Claude.', copyFail: 'Не вдалося скопіювати — спробуй ще раз',
+    nextReady: 'План на наступний тиждень готовий',
     noPlan: 'Плану ще немає.<br>Попроси Claude: “plan next week”.',
     error: 'Не вдалося завантажити файли.',
-    fallback: 'Українська версія цього тижня ще не готова, тому показано англійською.',
     sumTitle: iso => `Тиждень від ${iso} — результати`,
-    sumDay: (day, d, t, missed) => `${day}: виконано ${d}/${t}${missed.length ? ` (не виконано: ${missed.join(', ')})` : ''}`,
-    sumNotes: 'Мої нотатки',
+    sumNotes: 'Мої нотатки', sumNotLogged: 'нічого не відмічено',
   },
 };
 
-let lang = store('lang') === 'uk' ? 'uk' : 'en';
-const t = key => TEXT[lang][key];
-
-function applyLanguage() {
-  document.documentElement.lang = lang;
-  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
-  document.querySelectorAll('.lang button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
-}
-
-// ---------- small helpers ----------
-
-const esc = s => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const inline = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>');
+// ---------- saved settings ----------
 
 function store(key, value) {
   try {
@@ -86,36 +90,58 @@ function store(key, value) {
   } catch { return null; }
 }
 
-async function getText(path) {
-  const res = await fetch(path, { cache: 'no-cache' });
-  if (!res.ok) throw new Error(`Could not load ${path}`);
-  return res.text();
+let lang = store('lang') === 'uk' ? 'uk' : 'en';
+let theme = store('theme') === 'light' ? 'light' : 'dark';
+const T = () => TEXT[lang];
+
+function applySettings() {
+  document.documentElement.lang = lang;
+  document.documentElement.dataset.theme = theme;
+  document.querySelector('meta[name="theme-color"]').content = theme === 'light' ? '#F2F1EA' : '#0E0F0C';
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = T()[el.dataset.i18n]; });
 }
 
-// Loads "name.uk.md" in Ukrainian mode (falls back to "name.md" if it doesn't exist yet).
-async function getLocalized(base) {
-  if (lang === 'uk') {
-    try { return { text: await getText(`${base}.uk.md`), fallback: false }; } catch { /* use English */ }
-    return { text: await getText(`${base}.md`), fallback: true };
+// ---------- small helpers ----------
+
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const inline = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>');
+const fmt = n => lang === 'uk' ? String(n).replace('.', ',') : String(n);
+const mss = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+
+const fileCache = {};
+function getText(path) {
+  if (!fileCache[path]) {
+    fileCache[path] = fetch(path, { cache: 'no-cache' }).then(r => {
+      if (!r.ok) throw new Error(`Could not load ${path}`);
+      return r.text();
+    });
+    fileCache[path].catch(() => delete fileCache[path]);
   }
-  return { text: await getText(`${base}.md`), fallback: false };
+  return fileCache[path];
 }
+
+// Loads "name.uk.md" in Ukrainian (falls back to "name.md" if it doesn't exist yet).
+async function getLocalized(base) {
+  if (lang === 'uk') { try { return await getText(`${base}.uk.md`); } catch { /* use English */ } }
+  return getText(`${base}.md`);
+}
+const loadWeek = async (folder, iso) => parseWeek(await getLocalized(`${folder}/${iso}`));
 
 // ---------- dates ----------
 
 const parseDate = iso => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); };
 const addDays = (date, n) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + n);
 const toIso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-const short = d => d.toLocaleDateString(lang === 'uk' ? 'uk-UA' : 'en-US', { month: 'short', day: 'numeric' });
+const short = d => d.toLocaleDateString(lang === 'uk' ? 'uk-UA' : 'en-US', { month: 'short', day: 'numeric' }).replace('.', '');
 const today = () => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); };
 const mondayOf = d => addDays(d, -((d.getDay() + 6) % 7));
 const weekRange = iso => { const m = parseDate(iso); return `${short(m)} – ${short(addDays(m, 6))}`; };
 
-// ---------- Markdown parsing ----------
+// ---------- reading the Markdown files ----------
 
 const normApos = s => s.replace(/[’ʼ`]/g, "'").toLowerCase();
 
-// Returns { index (0 = Monday), label } if a heading starts with a weekday name (English or Ukrainian).
+// Returns { index (0 = Monday), label, rest } if a heading starts with a weekday (English or Ukrainian).
 function matchDay(title) {
   const lower = normApos(title);
   for (const names of [DAYS, DAYS_UK]) {
@@ -125,18 +151,19 @@ function matchDay(title) {
   return null;
 }
 
-// Turns a week file into { title, sections: [day | note] }.
-// Day sections are "## Tuesday — Lower body"; any other "##" section is a note.
+const FIELD = { sets: 'sets', 'підходи': 'sets', weight: 'weight', 'вага': 'weight', rest: 'rest', 'відпочинок': 'rest' };
+
+// Turns a week file into { sections: [day | note] }.
+// "## Tuesday — Lower body" is a workout day; any other "##" heading is a note.
 function parseWeek(md) {
-  const week = { title: '', sections: [] };
+  const week = { sections: [] };
   let section = null, group = null, item = null;
 
   for (const raw of md.split(/\r?\n/)) {
     const line = raw.trimEnd();
     if (!line.trim()) continue;
-
     let m;
-    if ((m = line.match(/^# (.+)/))) { week.title = m[1].trim(); continue; }
+    if (/^# /.test(line)) continue;
 
     if ((m = line.match(/^## (.+)/))) {
       const title = m[1].trim();
@@ -147,13 +174,11 @@ function parseWeek(md) {
         section.groups.push(group);
       } else {
         section = { type: 'note', title, lines: [] };
-        group = null;
       }
       item = null;
       week.sections.push(section);
       continue;
     }
-
     if (!section) continue;
     if (section.type === 'note') { section.lines.push(line); continue; }
 
@@ -169,147 +194,534 @@ function parseWeek(md) {
       const box = text.match(/^\[( |x|X)\]\s*/);
       if (box) { done = box[1].toLowerCase() === 'x'; text = text.slice(box[0].length); }
       const cut = text.indexOf(' — ');
-      item = {
-        name: cut >= 0 ? text.slice(0, cut) : text,
-        dose: cut >= 0 ? text.slice(cut + 3) : '',
-        desc: '',
-        done,
-      };
+      item = { name: cut >= 0 ? text.slice(0, cut) : text, fields: {}, desc: cut >= 0 ? text.slice(cut + 3) : '', done };
       group.items.push(item);
       continue;
     }
 
-    if (/^\s{2,}\S/.test(line) && item) { item.desc += (item.desc ? ' ' : '') + line.trim(); continue; }
+    if (item && /^\s{2,}\S/.test(line)) {
+      const f = line.trim().match(/^-\s*([^:]+):\s*(.*)$/);
+      const key = f && FIELD[f[1].trim().toLowerCase()];
+      if (key) item.fields[key] = f[2].trim();
+      else item.desc += (item.desc ? ' ' : '') + line.trim();
+      continue;
+    }
 
-    // Plain text line inside a day: a note for the current group (e.g. "Rest 60 s, repeat 3 times").
+    // Plain text inside a day: a note for the current round (e.g. rest and how many rounds).
     group.note += (group.note ? ' ' : '') + line.trim();
     item = null;
   }
 
-  // Drop empty leading groups (days that start straight with "###").
-  for (const s of week.sections) if (s.type === 'day') s.groups = s.groups.filter(g => g.items.length || g.note);
+  for (const s of week.sections) {
+    if (s.type !== 'day') continue;
+    s.groups = s.groups.filter(g => g.items.length || g.note);
+    s.groups.forEach(g => g.items.forEach(enrich));
+  }
   return week;
 }
 
-// Very small Markdown renderer for notes and the profile page.
-function renderMarkdown(lines) {
-  let html = '', list = null;
-  const closeList = () => { if (list) { html += `</${list}>`; list = null; } };
-  for (const line of lines) {
-    let m;
-    if (!line.trim()) { closeList(); continue; }
-    if ((m = line.match(/^#{1,3} (.+)/))) { closeList(); html += `<h3>${inline(m[1])}</h3>`; continue; }
-    if ((m = line.match(/^\s*[-*] (.+)/))) {
-      if (list !== 'ul') { closeList(); html += '<ul>'; list = 'ul'; }
-      html += `<li>${inline(m[1])}</li>`; continue;
-    }
-    if ((m = line.match(/^\s*\d+\. (.+)/))) {
-      if (list !== 'ol') { closeList(); html += '<ol>'; list = 'ol'; }
-      html += `<li>${inline(m[1])}</li>`; continue;
-    }
-    closeList();
-    html += `<p>${inline(line)}</p>`;
-  }
-  closeList();
-  return html;
+// Works out set count, reps, weight and rest seconds from an exercise's fields.
+function enrich(it) {
+  const sets = it.fields.sets || '';
+  const sm = sets.match(/^(\d+)\s*[×x]\s*(.+)$/i);
+  it.n = sm ? Math.max(1, Number(sm[1])) : (Number(sets.match(/^\d+/)) || 1);
+  it.reps = sm ? sm[2].trim() : '';
+  it.sr = sm ? `${it.n} × ${it.reps}` : (sets || '—');
+
+  const w = it.fields.weight || '';
+  const wm = w.match(/^([\d.,]+(?:\s*[→–-]\s*[\d.,]+)?)\s*(.*)$/);
+  it.wv = wm ? wm[1] : '—';
+  it.wu = wm ? wm[2] : w;
+  const firstNum = w.match(/[\d]+(?:[.,]\d+)?/);
+  it.wnum = firstNum ? Number(firstNum[0].replace(',', '.')) : null;
+
+  const r = it.fields.rest || '';
+  const nums = (r.match(/\d+/g) || []).map(Number);
+  let sec = nums.length ? nums[nums.length - 1] : 0;
+  if (/min|хв/i.test(r)) sec *= 60;
+  it.restSec = sec;
 }
 
-// ---------- rendering ----------
-
-function exerciseHtml(item, key, checks, editable) {
-  const desc = item.desc ? `<span class="ex-desc">${inline(item.desc)}</span>` : '';
-  const text = `<span class="ex-text"><span class="ex-name">${inline(item.name)}</span>${item.dose ? `<span class="ex-dose">${inline(item.dose)}</span>` : ''}${desc}</span>`;
-  if (editable) {
-    return `<label class="ex"><input type="checkbox" data-key="${key}" ${checks[key] ? 'checked' : ''}><span class="box">${CHECK_SVG}</span>${text}</label>`;
+function noteParts(lines) {
+  const text = [], bullets = [];
+  for (const l of lines) {
+    const b = l.match(/^\s*[-*] (.+)/);
+    if (b) bullets.push(b[1]); else text.push(l.trim());
   }
-  const mark = item.done === true ? `<span class="mark yes" title="${t('done')}">✓</span>`
-    : item.done === false ? `<span class="mark no" title="${t('skipped')}">–</span>`
-    : '<span class="mark none">•</span>';
-  return `<div class="ex">${mark}${text}</div>`;
+  return { text: text.join(' '), bullets };
 }
 
-// Ticks are stored by position ("day-group-exercise"), so they stay the same in both languages.
-function dayCounts(section, si, checks, editable) {
-  let total = 0, done = 0;
+// ---------- ticks (saved per week, per set) ----------
+
+const ckey = (si, gi, ii, k) => `${si}-${gi}-${ii}-${k}`;
+const getChecks = iso => store(`checks:${iso}`) || {};
+// Older versions saved one tick per exercise ("si-gi-ii"); that counts as every set done.
+const isSetDone = (checks, si, gi, ii, k) => !!(checks[ckey(si, gi, ii, k)] || checks[`${si}-${gi}-${ii}`]);
+
+function exDone(checks, si, gi, ii, it) {
+  let c = 0;
+  for (let k = 0; k < it.n; k++) if (isSetDone(checks, si, gi, ii, k)) c++;
+  return c;
+}
+
+function dayStats(section, si, checks) {
+  let done = 0, total = 0, exCount = 0;
   section.groups.forEach((g, gi) => g.items.forEach((it, ii) => {
-    total++;
-    if (editable ? checks[`${si}-${gi}-${ii}`] : it.done) done++;
+    exCount++; total += it.n; done += exDone(checks, si, gi, ii, it);
   }));
-  return { total, done };
+  return { done, total, exCount };
 }
 
-function weekHtml(weekIso, week, { editable }) {
-  const checks = editable ? (store(`checks:${weekIso}`) || {}) : {};
-  const todayIso = toIso(today());
-  let openedOne = false;
-
-  return week.sections.map((s, si) => {
-    if (s.type === 'note') {
-      // On the plan page notes start folded so the workout comes first.
-      return `<details class="card" ${editable ? '' : 'open'}>
-        <summary><span class="day-title"><h2>${inline(s.title)}</h2></span>${CHEV_SVG}</summary>
-        <div class="card-body note-body">${renderMarkdown(s.lines)}</div>
-      </details>`;
-    }
-    const date = addDays(parseDate(weekIso), s.dayIndex);
-    const isToday = toIso(date) === todayIso;
-    const { total, done } = dayCounts(s, si, checks, editable);
-    // Open the first day that still has work left (or every day for past weeks).
-    let open = !editable;
-    if (editable && !openedOne && done < total) { open = true; openedOne = true; }
-
-    const body = s.groups.map((g, gi) => `
-      ${g.title ? `<h3>${inline(g.title)}</h3>` : ''}
-      ${g.note ? `<p class="group-note">${inline(g.note)}</p>` : ''}
-      ${g.items.map((it, ii) => exerciseHtml(it, `${si}-${gi}-${ii}`, checks, editable)).join('')}
-    `).join('');
-
-    return `
-      <details class="card day" data-si="${si}" ${open ? 'open' : ''}>
-        <summary>
-          <span class="day-title"><h2>${inline(s.day)}${isToday ? `<span class="badge">${t('today')}</span>` : ''}</h2><small>${inline(s.focus)} · ${short(date)}</small></span>
-          <span class="count ${done === total ? 'all' : ''}" data-count="${si}">${done} / ${total}</span>
-          ${CHEV_SVG}
-        </summary>
-        <div class="card-body">${body}</div>
-      </details>`;
-  }).join('');
-}
-
-function progressHtml(done, total) {
-  const pct = total ? Math.round((done / total) * 100) : 0;
-  return `<div class="progress"><div class="bar"><span style="width:${pct}%"></span></div>
-    <div class="progress-label"><span>${TEXT[lang].progress(done, total)}</span><span>${pct}%</span></div></div>`;
-}
-
-function weekTotals(weekIso, week) {
-  const checks = store(`checks:${weekIso}`) || {};
+// For finished (history) weeks: an exercise is done if it's marked [x].
+function historyDayStats(section) {
   let done = 0, total = 0;
-  week.sections.forEach((s, si) => {
-    if (s.type !== 'day') return;
-    const c = dayCounts(s, si, checks, true);
-    done += c.done; total += c.total;
-  });
+  section.groups.forEach(g => g.items.forEach(it => { total++; if (it.done) done++; }));
   return { done, total };
 }
 
-// Text you can paste to Claude when you say "finish the week".
-function summaryText(weekIso, week) {
-  const checks = store(`checks:${weekIso}`) || {};
-  const L = TEXT[lang];
-  const out = [L.sumTitle(weekIso)];
+// ---------- app state ----------
+
+let weeks = { plans: [], history: [] };
+let rest = null;          // { end, total, iso } while the rest timer runs
+let restTimer = null;
+let openWeek = undefined; // which past week is expanded on History
+let liftPick = 0;
+
+const allWeeks = () => [...new Set([...weeks.history, ...weeks.plans])].sort();
+const weekNo = iso => allWeeks().indexOf(iso) + 1;
+const currentMonday = () => toIso(mondayOf(today()));
+
+function pickCurrentPlan() {
+  const plans = [...weeks.plans].sort();
+  const mon = currentMonday();
+  if (plans.includes(mon)) return mon;
+  const future = plans.filter(p => p > mon);
+  if (future.length) return future[0];
+  return plans[plans.length - 1] || null;
+}
+
+function dayStatus(iso, section, si, checks) {
+  const date = addDays(parseDate(iso), section.dayIndex);
+  const st = dayStats(section, si, checks);
+  const finished = (store(`finished:${iso}`) || {})[si];
+  const t0 = toIso(today()), d0 = toIso(date);
+  let status;
+  if (finished || (st.total && st.done === st.total)) status = 'done';
+  else if (d0 === t0) status = 'today';
+  else if (d0 < t0) status = st.done ? 'partial' : 'missed';
+  else status = st.done ? 'partial' : 'up';
+  return { date, status, ...st };
+}
+
+// ---------- screens ----------
+
+function headHtml(eyebrow, title, withLang) {
+  return `<div class="head"><div class="head-text">
+      ${eyebrow ? `<div class="eyebrow">${eyebrow}</div>` : ''}
+      <h1 class="title">${title}</h1></div>
+      ${withLang ? `<button class="pill-btn" data-act="toggle-lang" aria-label="Language">${lang === 'en' ? 'EN' : 'UA'}</button>` : ''}
+    </div>`;
+}
+
+async function screenWeek(iso) {
+  if (!iso) { app.innerHTML = `<div class="screen">${headHtml('', T().thisWeek, true)}<p class="empty">${T().noPlan}</p></div>`; return; }
+  const week = await loadWeek('plans', iso);
+  const checks = getChecks(iso);
+  const isCurrent = iso === pickCurrentPlan();
+  const days = week.sections.map((s, si) => s.type === 'day' ? { s, si, ...dayStatus(iso, s, si, checks) } : null).filter(Boolean);
+  const doneCount = days.filter(d => d.status === 'done').length;
+  // The lime "hero" card: today's workout, otherwise the next one still to do.
+  const t0 = toIso(today());
+  const hero = days.find(d => d.status !== 'done' && toIso(d.date) >= t0);
+
+  const segClass = d => d.status === 'done' ? 'on' : d.status === 'partial' ? 'part' : d.status === 'missed' ? 'miss' : '';
+  const cards = days.map(d => {
+    const href = `#/w/${iso}/${d.si}`;
+    const meta = `${T().exercises(d.exCount)} · ${T().setsN(d.total)}`;
+    const when = `<div class="day-when"><b>${T().days3[d.s.dayIndex]}</b><span>${short(d.date)}</span></div>`;
+    if (d === hero) {
+      return `<a class="day hero" href="${href}">${when}
+        <div class="day-main"><em>${d.status === 'today' ? T().today : T().upNext}</em><b>${inline(d.s.focus)}</b><span>${meta}</span></div>
+        <div class="go-btn">${ICON.arrow}</div></a>`;
+    }
+    const right = d.status === 'done' ? `<div class="done-mark">${T().done}<i>${ICON.check}</i></div>`
+      : d.status === 'partial' ? `<span class="chip ok">${T().partial(d.done, d.total)}</span>`
+      : d.status === 'missed' ? `<span class="chip warn">${T().missed}</span>`
+      : `<span class="chip up">${T().upcoming}</span>`;
+    return `<a class="day" href="${href}">${when}<div class="day-main"><b>${inline(d.s.focus)}</b><span>${meta}</span></div>${right}</a>`;
+  }).join('');
+
+  const noteSec = week.sections.find(s => s.type === 'note');
+  let coach = '';
+  if (noteSec) {
+    const { text, bullets } = noteParts(noteSec.lines);
+    coach = `<section class="card">
+      <div class="coach-head"><i></i><span class="label">${T().coach}</span></div>
+      ${text ? `<p class="coach-text">${inline(text)}</p>` : ''}
+      ${bullets.length ? `<div class="tags">${bullets.map(b => `<span>${inline(b)}</span>`).join('')}</div>` : ''}
+      <span class="by">${T().coachBy}</span></section>`;
+  }
+
+  const nextPlan = weeks.plans.filter(p => p > iso).sort()[0];
+  const label = iso === currentMonday() ? T().thisWeek : iso > currentMonday() ? T().nextWeek : T().plan;
+
+  app.innerHTML = `<div class="screen">
+    ${headHtml(`${T().week} ${weekNo(iso)} · ${weekRange(iso)}`, label, true)}
+    <section class="card">
+      <div class="count-row"><span class="count-big">${doneCount}<small>/${days.length}</small></span><span class="count-label">${T().sessionsDone}</span></div>
+      <div class="segs">${days.map(d => `<div class="${segClass(d)}"></div>`).join('')}</div>
+    </section>
+    <div class="stack">${cards}</div>
+    ${coach}
+    ${nextPlan && isCurrent ? `<a class="card link-card" href="#/w/${nextPlan}">${T().nextReady}${ICON.arrow}</a>` : ''}
+    ${isCurrent ? `<section class="card">
+      <span class="label">${T().endTitle}</span>
+      <p class="hint">${T().endHint}</p>
+      <textarea data-notes="${iso}" placeholder="${esc(T().endPlaceholder)}">${esc(store(`notes:${iso}`) || '')}</textarea>
+      <button class="btn" data-act="copy" data-iso="${iso}">${T().copyBtn}</button>
+    </section>` : ''}
+  </div>`;
+}
+
+function exerciseHtml(it, idx, setsHtml, extra = '') {
+  const desc = it.desc ? `<div class="note">${ICON.info}<span>${inline(it.desc)}</span></div>` : '';
+  return `<div class="ex">
+    <div class="ex-top"><span class="ex-idx">${String(idx).padStart(2, '0')}</span><span class="ex-name">${inline(it.name)}</span>${extra}</div>
+    <div class="stats">
+      <div class="stat"><span class="label">${T().setsReps}</span><b class="${it.sr.length > 7 ? 'long' : ''}">${esc(it.sr)}</b></div>
+      <div class="stat"><span class="label">${T().weight}</span><b class="${it.wv.length > 5 ? 'long' : ''}">${esc(it.wv)}${it.wu ? `<small>${esc(it.wu)}</small>` : ''}</b></div>
+      <div class="stat"><span class="label">${T().rest}</span><b>${it.restSec ? mss(it.restSec) : '—'}</b></div>
+    </div>
+    ${desc}${setsHtml}
+  </div>`;
+}
+
+// One workout day. Plans are tickable per set; past weeks are read-only.
+async function screenWorkout(folder, iso, si) {
+  const editable = folder === 'plans';
+  const week = await loadWeek(folder, iso);
+  const s = week.sections[si];
+  if (!s || s.type !== 'day') { location.hash = '#/'; return; }
+  const checks = editable ? getChecks(iso) : {};
+  const date = addDays(parseDate(iso), s.dayIndex);
+  const st = editable ? dayStats(s, si, checks) : (() => { const h = historyDayStats(s); return { done: h.done, total: h.total }; })();
+  const pct = st.total ? (st.done / st.total) * 100 : 0;
+  const backHref = editable ? (iso === pickCurrentPlan() ? '#/' : `#/w/${iso}`) : '#/history';
+
+  let idx = 0;
+  const body = s.groups.map((g, gi) => {
+    const round = g.title || g.note ? `<div class="round">${g.title ? `<b>${inline(g.title)}</b>` : ''}${g.note ? `<span>${inline(g.note)}</span>` : ''}</div>` : '';
+    return round + g.items.map((it, ii) => {
+      idx++;
+      if (!editable) {
+        const chip = it.done === false ? `<span class="chip warn sm">${T().skipped}</span>` : it.done ? `<div class="ex-check">${ICON.check}</div>` : '';
+        return exerciseHtml(it, idx, '', chip);
+      }
+      const c = exDone(checks, si, gi, ii, it);
+      const sub = it.reps ? `×${esc(it.reps)}` : '';
+      let sets = '';
+      for (let k = 0; k < it.n; k++) {
+        const on = isSetDone(checks, si, gi, ii, k);
+        sets += `<button class="set${on ? ' on' : ''}" aria-pressed="${on}" data-act="set" data-set="${si}.${gi}.${ii}.${k}" data-iso="${iso}">
+          ${on ? ICON.check : `<b>${k + 1}</b><span>${sub}</span>`}</button>`;
+      }
+      return exerciseHtml(it, idx, `<div class="sets">${sets}</div>`, c === it.n ? `<div class="ex-check">${ICON.check}</div>` : '');
+    }).join('');
+  }).join('');
+
+  app.innerHTML = `<div class="screen" style="padding-bottom:${editable ? 300 : 40}px">
+    <div class="wo-head">
+      <div class="wo-row">
+        <a class="circle-btn" href="${backHref}" aria-label="Back">${ICON.back}</a>
+        <div class="wo-title"><span>${inline(s.day)} · ${short(date)}</span><b>${inline(s.focus)}</b></div>
+        <div class="wo-count"><b>${st.done}<small>/${st.total}</small></b><span>${editable ? T().setsWord : ''}</span></div>
+      </div>
+      <div class="bar"><div style="width:${pct}%"></div></div>
+    </div>
+    ${body}
+  </div>`;
+  if (editable) renderDock(iso, s, si);
+}
+
+// The bottom bar on a workout: the rest timer (when running) and "Finish workout".
+function renderDock(iso, s, si) {
+  const checks = getChecks(iso);
+  const st = dayStats(s, si, checks);
+  let restHtml = '';
+  if (rest && rest.iso === iso) {
+    const rem = Math.max(0, Math.ceil((rest.end - Date.now()) / 1000));
+    // "Next": the first unticked set from the exercise just ticked onwards, then from the top.
+    const order = [];
+    s.groups.forEach((g, gi) => g.items.forEach((it, ii) => { for (let k = 0; k < it.n; k++) order.push({ gi, ii, k, it }); }));
+    const from = Math.max(0, order.findIndex(o => o.gi === rest.gi && o.ii === rest.ii));
+    const pick = [...order.slice(from), ...order.slice(0, from)].find(o => !isSetDone(checks, si, o.gi, o.ii, o.k));
+    const next = pick ? `${T().next}: ${pick.it.name} · ${T().set} ${pick.k + 1}` : '';
+    restHtml = `<div class="rest">
+      <div class="rest-row">
+        <div class="rest-time"><span>${rem ? T().resting : T().go}</span><b>${rem ? mss(rem) : T().go}</b></div>
+        <button class="plus" data-act="rest-add">+30 ${lang === 'uk' ? 'с' : 's'}</button>
+        <button class="skip" data-act="rest-skip">${T().skip}</button>
+      </div>
+      <div class="rest-bar"><div style="width:${(rem / rest.total) * 100}%"></div></div>
+      ${next ? `<span class="rest-next">${esc(next)}</span>` : ''}
+    </div>`;
+  }
+  const all = st.total && st.done === st.total;
+  dock.innerHTML = `<div class="dock-in">${restHtml}
+    <button class="btn${all ? '' : ' inv'}" data-act="finish" data-iso="${iso}" data-si="${si}">${T().finish}</button></div>`;
+}
+
+function startRestTimer() {
+  clearInterval(restTimer);
+  let buzzed = false;
+  restTimer = setInterval(() => {
+    if (!rest) { clearInterval(restTimer); return; }
+    const left = rest.end - Date.now();
+    if (left <= 0 && !buzzed) { buzzed = true; try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch { /* not supported */ } }
+    if (left < -3000) { rest = null; clearInterval(restTimer); }
+    refreshDock();
+  }, 250);
+}
+
+let dockCtx = null;
+function refreshDock() { if (dockCtx) renderDock(dockCtx.iso, dockCtx.s, dockCtx.si); }
+
+async function toggleSet(iso, si, gi, ii, k) {
+  const week = await loadWeek('plans', iso);
+  const s = week.sections[si];
+  const it = s.groups[gi].items[ii];
+  const checks = getChecks(iso);
+  // Expand an old whole-exercise tick into per-set ticks first.
+  const legacy = `${si}-${gi}-${ii}`;
+  if (checks[legacy]) { for (let j = 0; j < it.n; j++) checks[ckey(si, gi, ii, j)] = true; delete checks[legacy]; }
+  const key = ckey(si, gi, ii, k);
+  const nowOn = !checks[key];
+  if (nowOn) checks[key] = true; else delete checks[key];
+  store(`checks:${iso}`, checks);
+
+  if (nowOn) {
+    const starts = store(`start:${iso}`) || {};
+    if (!starts[si]) { starts[si] = Date.now(); store(`start:${iso}`, starts); }
+    const st = dayStats(s, si, checks);
+    if (it.restSec > 0 && st.done < st.total) { rest = { end: Date.now() + it.restSec * 1000, total: it.restSec, iso, gi, ii }; startRestTimer(); }
+  }
+  const y = window.scrollY;
+  await screenWorkout('plans', iso, si);
+  window.scrollTo(0, y);
+}
+
+async function finishWorkout(iso, si) {
+  const week = await loadWeek('plans', iso);
+  const s = week.sections[si];
+  const checks = getChecks(iso);
+  const finished = store(`finished:${iso}`) || {};
+  finished[si] = Date.now();
+  store(`finished:${iso}`, finished);
+  rest = null; clearInterval(restTimer);
+
+  let sets = 0, total = 0, vol = 0;
+  s.groups.forEach((g, gi) => g.items.forEach((it, ii) => {
+    const c = exDone(checks, si, gi, ii, it);
+    sets += c; total += it.n;
+    const reps = Number(it.reps);
+    if (c && it.wnum && reps && /kg|кг/.test(it.wu)) vol += c * reps * it.wnum;
+  }));
+  const start = (store(`start:${iso}`) || {})[si];
+  const mins = start ? Math.max(1, Math.round((Date.now() - start) / 60000)) : null;
+  const backHref = iso === pickCurrentPlan() ? '#/' : `#/w/${iso}`;
+
+  overlay.innerHTML = `<div class="summary">
+    <div class="big-check">${ICON.check}</div>
+    <div><h2>${T().wellDone}</h2><p>${inline(s.day)} · ${inline(s.focus)}</p></div>
+    <div class="tiles">
+      <div class="tile"><span class="label">${T().sets}</span><b>${sets}</b><span>/ ${total}</span></div>
+      <div class="tile"><span class="label">${T().volume}</span><b>${vol ? Math.round(vol).toLocaleString(lang === 'uk' ? 'uk-UA' : 'en-US') : '—'}</b><span>${T().kg}</span></div>
+      <div class="tile"><span class="label">${T().time}</span><b>${mins ?? '—'}</b><span>${T().min}</span></div>
+    </div>
+    <a class="btn" href="${backHref}" data-act="close-overlay">${T().backToWeek}</a>
+  </div>`;
+}
+
+// Past weeks: key-lift chart + an expandable list.
+async function screenHistory() {
+  const list = [...weeks.history].sort().reverse();
+  const parsed = {};
+  await Promise.all(allWeeks().map(async iso => {
+    const folder = weeks.history.includes(iso) ? 'history' : 'plans';
+    try { parsed[iso] = { folder, week: await loadWeek(folder, iso) }; } catch { /* skip missing */ }
+  }));
+
+  // Key lifts come from the profile's "Key lifts" list.
+  let lifts = [];
+  try {
+    const sec = profileSections(await getLocalized('profile')).find(x => x.kind === 'keylifts');
+    if (sec) lifts = noteParts(sec.lines).bullets;
+  } catch { /* no profile */ }
+  if (liftPick >= lifts.length) liftPick = 0;
+
+  let chart = '';
+  if (lifts.length) {
+    const name = normApos(lifts[liftPick]);
+    const pts = [];
+    allWeeks().filter(iso => iso <= (pickCurrentPlan() || iso)).forEach(iso => {
+      const p = parsed[iso];
+      if (!p) return;
+      let val = null;
+      p.week.sections.forEach(s => s.type === 'day' && s.groups.forEach(g => g.items.forEach(it => {
+        if (val === null && normApos(it.name).startsWith(name) && it.wnum) val = it.wnum;
+      })));
+      if (val !== null) pts.push({ iso, v: val });
+    });
+    if (pts.length) chart = chartHtml(lifts, pts);
+  }
+
+  const rows = list.map((iso, i) => {
+    const p = parsed[iso];
+    if (!p) return '';
+    const days = p.week.sections.map((s, si) => s.type === 'day' ? { s, si, ...historyDayStats(s) } : null).filter(Boolean);
+    const stOf = d => d.done === d.total ? 'on' : d.done ? 'part' : 'miss';
+    const fullDays = days.filter(d => d.done === d.total).length;
+    const pct = days.length ? Math.round((fullDays / days.length) * 100) : 0;
+    const isOpen = openWeek === undefined ? i === 0 : openWeek === iso;
+    const notes = p.week.sections.find(s => s.type === 'note');
+    const sess = days.map(d => {
+      const chip = d.done === d.total ? `<span class="chip ok sm">${T().done}</span>`
+        : d.done ? `<span class="chip ok sm">${d.done}/${d.total}</span>` : `<span class="chip warn sm">${T().skipped}</span>`;
+      return `<a class="sess${d.done ? '' : ' dim'}" href="#/h/${iso}/${d.si}"><b>${T().days3[d.s.dayIndex]}</b>
+        <div class="sess-main"><b>${inline(d.s.focus)}</b><span>${T().exercises(d.total)}</span></div>${chip}</a>`;
+    }).join('');
+    return `<div class="wk${isOpen ? ' open' : ''}">
+      <button class="wk-btn" data-act="week-toggle" data-iso="${iso}">
+        <div class="wk-main"><b>${T().week} ${weekNo(iso)}</b>
+          <div class="wk-sub"><span>${weekRange(iso)}</span><div class="wk-segs">${days.map(d => `<div class="${stOf(d)}"></div>`).join('')}</div></div></div>
+        <div class="wk-pct"><b style="color:${pct === 100 ? 'var(--accText)' : 'var(--text)'}">${pct}%</b><span>${fullDays}/${days.length}</span></div>
+        ${ICON.chev}
+      </button>
+      ${isOpen ? `<div class="wk-body">${notes ? `<div class="wk-notes">${notes.lines.map(l => `<p>${inline(l.replace(/^\s*[-*] /, ''))}</p>`).join('')}</div>` : ''}${sess}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  app.innerHTML = `<div class="screen">
+    <h1 class="title">${T().history}</h1>
+    ${chart}
+    <span class="label section-label">${T().pastWeeks}</span>
+    ${list.length ? `<div class="stack">${rows}</div>` : `<p class="empty">${T().noHistory}</p>`}
+  </div>`;
+}
+
+function chartHtml(lifts, pts) {
+  const vals = pts.map(p => p.v);
+  const mn = Math.floor((Math.min(...vals) - 5) / 10) * 10, mx = Math.ceil((Math.max(...vals) + 5) / 10) * 10;
+  const span = mx - mn || 10;
+  const step = pts.length > 1 ? 276 / (pts.length - 1) : 0;
+  const xf = i => pts.length > 1 ? 20 + i * step : 162;
+  const yf = v => 14 + (1 - (v - mn) / span) * 110;
+  const P = pts.map((p, i) => ({ x: xf(i), y: yf(p.v), last: i === pts.length - 1, lbl: `${T().weekShort}${weekNo(p.iso)}` }));
+  const line = P.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+  const area = P.length > 1 ? `${line} L${P[P.length - 1].x.toFixed(1)} 124 L${P[0].x.toFixed(1)} 124 Z` : '';
+  const grid = [mn, (mn + mx) / 2, mx].map(v => `<line x1="20" x2="304" y1="${yf(v)}" y2="${yf(v)}" stroke="var(--line)" stroke-dasharray="3 4"/><text x="314" y="${yf(v) - 5}" text-anchor="end" font-size="11">${fmt(v)}</text>`).join('');
+  const cur = vals[vals.length - 1], diff = cur - vals[0];
+  const opts = lifts.map((l, i) => `<button data-act="lift" data-i="${i}" aria-pressed="${i === liftPick}">${inline(l)}</button>`).join('');
+  return `<section class="card">
+    <span class="label">${T().keyLifts}</span>
+    <div class="segctl">${opts}</div>
+    <div class="chart-val"><b>${fmt(cur)}<small>${T().kg}</small></b>${diff ? `<span class="delta">${diff > 0 ? '+' : ''}${fmt(diff)} ${T().kg} ${T().since}</span>` : ''}</div>
+    <svg class="chart" viewBox="0 0 320 150" width="100%" style="overflow:visible">
+      ${grid}
+      ${area ? `<path d="${area}" fill="var(--acc)" opacity=".16"/>` : ''}
+      ${P.length > 1 ? `<path d="${line}" fill="none" stroke="var(--accText)" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>` : ''}
+      ${P.map(p => `<circle cx="${p.x}" cy="${p.y}" r="${p.last ? 7 : 4.5}" fill="${p.last ? 'var(--acc)' : 'var(--s1)'}" stroke="var(--accText)" stroke-width="2.5"/><text x="${p.x}" y="146" text-anchor="middle" font-size="12" font-weight="600">${p.lbl}</text>`).join('')}
+    </svg>
+  </section>`;
+}
+
+// Splits profile.md into sections and recognises the known ones by their heading.
+const KINDS = [
+  ['goal', ['goal', 'мета']], ['about', ['about', 'про мене']], ['schedule', ['schedule', 'розклад']],
+  ['equipment', ['equipment', 'обладнання']], ['rules', ['rules', 'правила']], ['limits', ['limits', 'обмеження']],
+  ['keylifts', ['key lifts', 'ключові']],
+];
+function profileSections(md) {
+  const out = [];
+  let cur = null;
+  for (const l of md.split(/\r?\n/)) {
+    if (l.startsWith('# ')) continue;
+    if (l.startsWith('## ')) {
+      const title = l.slice(3).trim();
+      const kind = (KINDS.find(([, words]) => words.some(w => title.toLowerCase().startsWith(w))) || ['other'])[0];
+      cur = { title, kind, lines: [] };
+      out.push(cur);
+      continue;
+    }
+    if (cur && l.trim()) cur.lines.push(l);
+  }
+  return out;
+}
+
+const keyVal = b => { const m = b.match(/^\*\*(.+?):?\*\*:?\s*(.*)$/); return m ? { k: m[1].replace(/:$/, ''), v: m[2] } : { k: '', v: b }; };
+
+async function screenProfile() {
+  const secs = profileSections(await getLocalized('profile'));
+  const card = (title, inner, cls = '') => `<section class="card"><span class="label${cls}">${inline(title)}</span>${inner}</section>`;
+  const html = secs.map(sec => {
+    const { text, bullets } = noteParts(sec.lines);
+    switch (sec.kind) {
+      case 'goal': return card(sec.title, `<span class="goal">${inline(text || bullets.join(', '))}</span>`);
+      case 'about': return card(sec.title, `<div class="about">${bullets.map(b => {
+        const { k, v } = keyVal(b);
+        return `<div><span class="label">${inline(k)}</span><b class="${v.length > 6 ? 'txt' : ''}">${inline(v)}</b></div>`;
+      }).join('')}</div>`);
+      case 'schedule': {
+        const on = new Set();
+        const lines = bullets.map(b => { const { k, v } = keyVal(b); const d = matchDay(k); if (d) on.add(d.index); return `<div><b>${inline(k)}</b> — ${inline(v)}</div>`; });
+        return card(sec.title, `<div class="weekdays">${T().days3.map((l, i) => `<div class="${on.has(i) ? 'on' : ''}">${l}</div>`).join('')}</div>
+          <div class="sched">${lines.join('')}</div>${text ? `<span class="strong">${inline(text)}</span>` : ''}`);
+      }
+      case 'equipment':
+      case 'keylifts': return card(sec.title, `<div class="tags">${bullets.map(b => `<span>${inline(b)}</span>`).join('')}</div>`);
+      case 'rules': return card(sec.title, `<div class="rows">${bullets.map(b => `<div class="row">${inline(b)}</div>`).join('')}</div>`);
+      case 'limits': {
+        const none = bullets.length === 1 && /^(no |none|немає|зараз травм)/i.test(bullets[0]);
+        return card(sec.title, `<div class="rows">${bullets.map(b => `<div class="row ${none ? 'ok' : 'warn'}">${inline(b)}</div>`).join('')}</div>`, none ? '' : ' warn');
+      }
+      default: return card(sec.title, `<div class="md">${text ? `<p>${inline(text)}</p>` : ''}${bullets.length ? `<ul>${bullets.map(b => `<li>${inline(b)}</li>`).join('')}</ul>` : ''}</div>`);
+    }
+  }).join('');
+
+  const seg = (cur, val, label, act) => `<button data-act="${act}" data-v="${val}" aria-pressed="${cur === val}">${label}</button>`;
+  app.innerHTML = `<div class="screen">
+    <h1 class="title">${T().profile}</h1>
+    <div class="lock">${ICON.lock}<span>${T().readOnly}</span></div>
+    ${html}
+    <span class="label section-label">${T().settings}</span>
+    <section class="card" style="gap:16px">
+      <div class="stack" style="gap:8px"><span class="strong">${T().language}</span>
+        <div class="segctl">${seg(lang, 'en', 'English', 'lang')}${seg(lang, 'uk', 'Українська', 'lang')}</div></div>
+      <div class="stack" style="gap:8px"><span class="strong">${T().theme}</span>
+        <div class="segctl">${seg(theme, 'dark', T().dark, 'theme')}${seg(theme, 'light', T().light, 'theme')}</div></div>
+    </section>
+  </div>`;
+}
+
+// ---------- end-of-week summary for Claude ----------
+
+async function summaryText(iso) {
+  const week = await loadWeek('plans', iso);
+  const checks = getChecks(iso);
+  const out = [T().sumTitle(iso)];
   week.sections.forEach((s, si) => {
     if (s.type !== 'day') return;
-    const missed = [];
-    let total = 0, done = 0;
-    s.groups.forEach((g, gi) => g.items.forEach((it, ii) => {
-      total++;
-      if (checks[`${si}-${gi}-${ii}`]) done++; else missed.push(it.name);
-    }));
-    out.push(L.sumDay(s.day, done, total, missed));
+    const st = dayStats(s, si, checks);
+    out.push(`${s.day} (${s.focus}): ${st.done}/${st.total} ${T().setsWord}${st.done ? '' : ` — ${T().sumNotLogged}`}`);
+    if (st.done && st.done < st.total) {
+      s.groups.forEach((g, gi) => g.items.forEach((it, ii) => {
+        const c = exDone(checks, si, gi, ii, it);
+        if (c < it.n) out.push(`  - ${it.name}: ${c}/${it.n}`);
+      }));
+    }
   });
-  const notes = (store(`notes:${weekIso}`) || '').trim();
-  if (notes) out.push(`${L.sumNotes}: ${notes}`);
+  const notes = (store(`notes:${iso}`) || '').trim();
+  if (notes) out.push(`${T().sumNotes}: ${notes}`);
   return out.join('\n');
 }
 
@@ -329,158 +741,84 @@ async function copy(text) {
   }
 }
 
-const fallbackHtml = fallback => fallback ? `<p class="fallback">${t('fallback')}</p>` : '';
+// ---------- taps ----------
 
-// ---------- pages ----------
-
-let weeks = { plans: [], history: [] };
-let pageListeners = null;
-
-function pickCurrentPlan() {
-  const plans = [...weeks.plans].sort();
-  const thisMonday = toIso(mondayOf(today()));
-  if (plans.includes(thisMonday)) return { iso: thisMonday, label: 'thisWeek' };
-  const future = plans.filter(p => p > thisMonday);
-  if (future.length) return { iso: future[0], label: 'nextWeek' };
-  const past = plans.filter(p => p < thisMonday);
-  if (past.length) return { iso: past[past.length - 1], label: 'latestPlan' };
-  return null;
-}
-
-async function pagePlan(iso, label) {
-  const { text, fallback } = await getLocalized(`plans/${iso}`);
-  const week = parseWeek(text);
-  const { done, total } = weekTotals(iso, week);
-  const nextPlan = weeks.plans.filter(p => p > iso).sort()[0];
-  const notes = store(`notes:${iso}`) || '';
-
-  app.innerHTML = `
-    <p class="eyebrow">${t(label)}</p>
-    <h1>${weekRange(iso)}</h1>
-    <p class="sub">${t('tapHint')}</p>
-    ${fallbackHtml(fallback)}
-    <div id="progress">${progressHtml(done, total)}</div>
-    ${weekHtml(iso, week, { editable: true })}
-    <section class="card finish">
-      <h2>${t('endTitle')}</h2>
-      <p>${t('endHint')}</p>
-      <textarea id="notes" placeholder="${esc(t('endPlaceholder'))}">${esc(notes)}</textarea>
-      <button class="btn" id="copy">${t('copyBtn')}</button>
-    </section>
-    ${nextPlan ? `<a class="link-row" href="#/plan/${nextPlan}">${t('seeNext')}</a>` : ''}`;
-
-  app.addEventListener('change', e => {
-    const key = e.target.dataset && e.target.dataset.key;
-    if (!key) return;
-    const checks = store(`checks:${iso}`) || {};
-    if (e.target.checked) checks[key] = true; else delete checks[key];
-    store(`checks:${iso}`, checks);
-    const si = Number(key.split('-')[0]);
-    const c = dayCounts(week.sections[si], si, checks, true);
-    const badge = app.querySelector(`[data-count="${si}"]`);
-    badge.textContent = `${c.done} / ${c.total}`;
-    badge.classList.toggle('all', c.done === c.total);
-    const tot = weekTotals(iso, week);
-    document.getElementById('progress').innerHTML = progressHtml(tot.done, tot.total);
-    if (c.done === c.total && e.target.checked) toast(TEXT[lang].dayDone(week.sections[si].day));
-  }, { signal: pageListeners.signal });
-
-  document.getElementById('notes').addEventListener('input', e => store(`notes:${iso}`, e.target.value));
-  document.getElementById('copy').addEventListener('click', async () => {
-    toast((await copy(summaryText(iso, week))) ? t('copied') : t('copyFail'));
-  });
-}
-
-async function pageHistoryList() {
-  const list = [...weeks.history].sort().reverse();
-  if (!list.length) {
-    app.innerHTML = `<h1>${t('tabHistory')}</h1><p class="empty">${t('noHistory')}</p>`;
-    return;
+document.addEventListener('click', async e => {
+  const el = e.target.closest('[data-act]');
+  if (!el) return;
+  const act = el.dataset.act;
+  if (act === 'set') {
+    const [si, gi, ii, k] = el.dataset.set.split('.').map(Number);
+    toggleSet(el.dataset.iso, si, gi, ii, k);
+  } else if (act === 'rest-add' && rest) {
+    rest.end = Math.max(rest.end, Date.now()) + 30000;
+    rest.total = Math.max(rest.total, Math.ceil((rest.end - Date.now()) / 1000));
+    refreshDock();
+  } else if (act === 'rest-skip') {
+    rest = null; clearInterval(restTimer); refreshDock();
+  } else if (act === 'finish') {
+    finishWorkout(el.dataset.iso, Number(el.dataset.si));
+  } else if (act === 'close-overlay') {
+    overlay.innerHTML = '';
+  } else if (act === 'copy') {
+    toast((await copy(await summaryText(el.dataset.iso))) ? T().copied : T().copyFail);
+  } else if (act === 'toggle-lang' || act === 'lang') {
+    lang = act === 'lang' ? el.dataset.v : (lang === 'en' ? 'uk' : 'en');
+    store('lang', lang); applySettings(); route(true);
+  } else if (act === 'theme') {
+    theme = el.dataset.v; store('theme', theme); applySettings(); route(true);
+  } else if (act === 'week-toggle') {
+    const iso = el.dataset.iso;
+    const isOpen = el.parentElement.classList.contains('open');
+    openWeek = isOpen ? null : iso;
+    route(true);
+  } else if (act === 'lift') {
+    liftPick = Number(el.dataset.i); route(true);
   }
-  const rows = await Promise.all(list.map(async iso => {
-    let done = 0, total = 0;
-    try {
-      parseWeek(await getText(`history/${iso}.md`)).sections.forEach(s => {
-        if (s.type === 'day') s.groups.forEach(g => g.items.forEach(it => { total++; if (it.done) done++; }));
-      });
-    } catch { /* show the row anyway */ }
-    return `<a class="card week-link" href="#/history/${iso}">
-      <span class="day-title">${weekRange(iso)}<small>${t('weekOf')} ${iso}</small></span>
-      <span class="count ${total && done === total ? 'all' : ''}">${done} / ${total}</span>
-      <svg class="chev" style="transform:rotate(-90deg)" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
-    </a>`;
-  }));
-  app.innerHTML = `<h1>${t('tabHistory')}</h1><p class="sub">${TEXT[lang].historyCount(list.length)}</p>${rows.join('')}`;
-}
+});
 
-async function pageHistoryWeek(iso) {
-  const { text, fallback } = await getLocalized(`history/${iso}`);
-  const week = parseWeek(text);
-  app.innerHTML = `
-    <a class="back" href="#/history">${t('back')}</a>
-    <p class="eyebrow">${t('finishedWeek')}</p>
-    <h1>${weekRange(iso)}</h1>
-    <p class="sub">${t('legend')}</p>
-    ${fallbackHtml(fallback)}
-    ${weekHtml(iso, week, { editable: false })}`;
-}
-
-async function pageProfile() {
-  const { text, fallback } = await getLocalized('profile');
-  const lines = text.split(/\r?\n/);
-  const title = (lines.find(l => l.startsWith('# ')) || '# My Profile').slice(2);
-  // Each "##" heading becomes its own card.
-  const cards = [];
-  let cur = null;
-  for (const l of lines) {
-    if (l.startsWith('# ')) continue;
-    if (l.startsWith('## ')) { cur = { title: l.slice(3), lines: [] }; cards.push(cur); continue; }
-    if (cur) cur.lines.push(l);
-  }
-  app.innerHTML = `<h1>${inline(title)}</h1><p class="sub">${t('profileHint')}</p>${fallbackHtml(fallback)}` +
-    cards.map(c => `<section class="card note"><h2>${inline(c.title)}</h2>${renderMarkdown(c.lines)}</section>`).join('');
-}
+document.addEventListener('input', e => {
+  const iso = e.target.dataset && e.target.dataset.notes;
+  if (iso) store(`notes:${iso}`, e.target.value);
+});
 
 // ---------- router ----------
 
-async function route({ keepScroll = false } = {}) {
-  // Remove the previous page's listeners so they don't pile up.
-  if (pageListeners) pageListeners.abort();
-  pageListeners = new AbortController();
-
+async function route(keepScroll = false) {
   const hash = location.hash.replace(/^#/, '') || '/';
-  const tab = hash.startsWith('/history') ? 'history' : hash.startsWith('/profile') ? 'profile' : 'week';
+  const y = window.scrollY;
+  const tab = /^\/(history|h\/)/.test(hash) ? 'history' : hash.startsWith('/profile') ? 'profile' : 'week';
   document.querySelectorAll('.tabs a').forEach(a => a.classList.toggle('active', a.dataset.tab === tab));
-  const scrollY = window.scrollY;
-
+  overlay.innerHTML = '';
+  dock.innerHTML = '';
+  dockCtx = null;
+  let m;
   try {
-    let m;
-    if ((m = hash.match(/^\/history\/(\d{4}-\d{2}-\d{2})$/))) await pageHistoryWeek(m[1]);
-    else if (hash === '/history') await pageHistoryList();
-    else if (hash === '/profile') await pageProfile();
-    else if ((m = hash.match(/^\/plan\/(\d{4}-\d{2}-\d{2})$/))) {
-      await pagePlan(m[1], m[1] > toIso(mondayOf(today())) ? 'nextWeek' : 'plan');
+    if ((m = hash.match(/^\/w\/(\d{4}-\d{2}-\d{2})\/(\d+)$/))) {
+      document.body.classList.add('workout');
+      await screenWorkout('plans', m[1], Number(m[2]));
+      const week = await loadWeek('plans', m[1]);
+      dockCtx = { iso: m[1], s: week.sections[Number(m[2])], si: Number(m[2]) };
+      if (rest && rest.iso === m[1]) startRestTimer();
+    } else if ((m = hash.match(/^\/h\/(\d{4}-\d{2}-\d{2})\/(\d+)$/))) {
+      document.body.classList.add('workout');
+      await screenWorkout('history', m[1], Number(m[2]));
     } else {
-      const cur = pickCurrentPlan();
-      if (cur) await pagePlan(cur.iso, cur.label);
-      else app.innerHTML = `<h1>${t('tabWeek')}</h1><p class="empty">${t('noPlan')}</p>`;
+      document.body.classList.remove('workout');
+      if ((m = hash.match(/^\/w\/(\d{4}-\d{2}-\d{2})$/))) await screenWeek(m[1]);
+      else if (hash === '/history') await screenHistory();
+      else if (hash === '/profile') await screenProfile();
+      else await screenWeek(pickCurrentPlan());
     }
   } catch (err) {
-    app.innerHTML = `<p class="empty">${t('error')}<br><small>${esc(err.message)}</small></p>`;
+    document.body.classList.remove('workout');
+    app.innerHTML = `<div class="screen"><p class="empty">${T().error}<br><small>${esc(err.message)}</small></p></div>`;
   }
-  window.scrollTo(0, keepScroll ? scrollY : 0);
+  window.scrollTo(0, keepScroll ? y : 0);
 }
 
-document.querySelectorAll('.lang button').forEach(b => b.addEventListener('click', () => {
-  if (b.dataset.lang === lang) return;
-  lang = b.dataset.lang;
-  store('lang', lang);
-  applyLanguage();
-  route({ keepScroll: true });
-}));
-
 (async function start() {
-  applyLanguage();
+  applySettings();
   try { weeks = JSON.parse(await getText('weeks.json')); } catch { /* keep empty lists */ }
   window.addEventListener('hashchange', () => route());
   route();

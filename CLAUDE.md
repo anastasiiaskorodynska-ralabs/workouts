@@ -4,7 +4,7 @@ This is a personal workout website. The owner has **no coding experience**: expl
 
 ## Two languages: English + Ukrainian
 
-The site has an **EN | УКР** switch. Every content file exists twice: the English file (`name.md`) and the Ukrainian file next to it (`name.uk.md`).
+The site has a language switch (the EN/UA button on This week, and Language in Profile). Every content file exists twice: the English file (`name.md`) and the Ukrainian file next to it (`name.uk.md`).
 - **Whenever you create or change a plan, history file or the profile, update both versions.**
 - The two versions must have **exactly the same structure**: same days, same `###` rounds, same exercises in the same order, same numbers. Checkbox ticks are stored by position, so a mismatch would put ticks on the wrong exercise.
 - The English file is the main one: Claude reads it for planning. The Ukrainian file is a translation of it.
@@ -22,7 +22,11 @@ The site has an **EN | УКР** switch. Every content file exists twice: the Eng
 | `index.html`, `style.css`, `app.js` | The website. It reads the Markdown files above; there's no build step. |
 | `.claude/serve.ps1` | Small local web server for previewing (`preview_start` with the name `workout-site`). |
 
-The website's main page shows the plan for the current week (or the next one if there isn't one for this week). Checkbox ticks are saved only in the phone's browser; Claude can't see them. The page has a **"Copy summary for Claude"** button that copies what was done plus the owner's notes, to paste into the chat.
+| `design/` | The Claude Design files the site's look is based on (dark gym look, lime accent). Not uploaded (`.gitignore`). |
+
+The website's screens: **This week** (sessions counter, a card per workout day, the next workout in lime, "Coach's note", end-of-week notes box) → tap a day for the **workout screen** (one big checkbox per set; ticking a set starts the rest timer; "Finish workout" shows a summary) · **History** (key-lift chart + past weeks) · **Profile** (read-only profile + Language and Dark/Light theme switches).
+
+Ticks are saved only in the phone's browser; Claude can't see them. The **"Copy summary for Claude"** button copies sets done per day (and which exercises were incomplete) plus the owner's notes, to paste into the chat.
 
 ## Week file format (the website depends on it, so keep it exact)
 
@@ -30,27 +34,41 @@ The website's main page shows the plan for the current week (or the next one if 
 # Week of 2026-09-28
 
 ## What changed and why
-- Short bullet points (plans only; history files use "## Notes" instead)
+One short paragraph in plain words explaining this week's changes (shown as the "Coach's note").
+
+- Bulgarian split squat 12 → 14 kg
+- Push-ups 12 → 14
 
 ## Tuesday — Lower body
 
-1. Exercise name — weight · sets × reps
-2. Another exercise — 12 kg × 12, then bodyweight × 12 · 3 sets
+1. Romanian deadlift
+   - sets: 3 × 12
+   - weight: 45 kg
+   - rest: 120 s
+   Optional how-to or detail line (shown in an info box).
 
 ## Saturday — Functional circuits
 
 ### Round 1 — Base + power
-Rest 60–75 s, repeat the round 3 times.
+Do the 3 exercises back to back, rest 60–75 s, then repeat. 3 rounds in total.
 
-1. Goblet squat + press — 12 kg kettlebell · 12 reps
-   Optional how-to description, indented 3 spaces, directly under the exercise.
+1. Goblet squat + press
+   - sets: 3 × 12
+   - weight: 12 kg kettlebell
+   - rest: none
 ```
 
 Rules:
-- A `## ` heading that starts with a weekday name is a workout day: `## <Day> — <Focus>`. Any other `## ` heading is shown as a note card.
-- Exercises are numbered `1.`, `2.`, … Name and dose are separated by ` — ` (an em dash with spaces). Use `×` for sets × reps and `·` before the sets.
-- `### ` headings are rounds/groups inside a day. A plain line right under one becomes its note (rest time, rounds).
-- In `history/` files, every exercise starts with `[x]` (done) or `[ ]` (skipped).
+- A `## ` heading that starts with a weekday name is a workout day: `## <Day> — <Focus>`. The first other `## ` section in a plan is the Coach's note: paragraph = the text, bullets = short change tags (keep each tag to a few words).
+- Exercises are numbered `1.`, `2.`, …, with the name only. Under each one, indented 3 spaces, come three field lines, then optional description lines:
+  - `- sets: <number of sets> × <reps>`. The number of sets = the number of checkboxes. Reps can be `12`, `12+12`, `max`, `35 s`, `10/20`. Keep reps short.
+  - `- weight: <number> <unit and words>`. Always start with the number (e.g. `45 kg`, `35 → 30 kg`, `5–8 kg plate or dumbbell`, `12 kg kettlebell`), or write words only (`bodyweight`, `plate`, `ball`).
+  - `- rest: <seconds> s` (or `none`). This starts the rest timer when a set is ticked. In Saturday circuits use `none` for the first exercises of a round and the round's rest on the last one.
+  - Ukrainian files use the keys `підходи:`, `вага:`, `відпочинок:` (and `немає` for none).
+- `### ` headings are rounds inside a day. A plain line right under one is its note.
+- In `history/` files, every exercise starts with `[x]` (done) or `[ ]` (skipped), e.g. `1. [x] Romanian deadlift`.
+- **Key lifts:** the History chart follows the exercises listed under `## Key lifts` in `profile.md` (`## Ключові вправи` in `profile.uk.md`), matched by the start of the exercise name. If an exercise is renamed, update that list too.
+- `profile.md` sections are recognised by heading: Goal, About me (`- **Label:** value`), Schedule (`- **Tuesday:** Lower body` + one plain line), Equipment, Rules for my plans, Limits, Key lifts.
 
 ## The training pattern (always keep it)
 
@@ -73,7 +91,7 @@ Rules:
    - Don't progress every exercise every week. About half is plenty; the rest stays the same so the body can adjust.
    - If the notes say something was too hard, was skipped, or hurt, keep it the same or make it easier.
    - About every 4–6 weeks, swap 1–2 exercises per day for a similar alternative to keep things fresh, and plan an easier (deload) week with ~10–20% lower weights.
-4. Start the file with `## What changed and why`: 2–5 short bullets explaining the changes in plain words.
+4. Start the file with `## What changed and why`: one short paragraph, then one short bullet tag per change.
 5. Write the Ukrainian version `plans/<that-date>.uk.md` with the identical structure (see "Two languages").
 6. Add the date to `"plans"` in `weeks.json`.
 7. Publish the update to the website (see "Publishing" below) and tell the owner in simple words what changed.
@@ -81,7 +99,7 @@ Rules:
 ## When the owner says "finish the week" (often pasting the summary from the site)
 
 1. Move the plan from `plans/<date>.md` to `history/<date>.md`, and the same for `plans/<date>.uk.md` → `history/<date>.uk.md`. Apply steps 2–3 to both versions (Ukrainian notes heading: `## Нотатки`).
-2. Mark each exercise `[x]` if it was done, `[ ]` if not (use the pasted summary; if there's none, ask).
+2. Mark each exercise `[x]` if it was done, `[ ]` if not (use the pasted summary; if there's none, ask). If only some sets were done, mark `[x]` and change the `sets:` line to what was actually done.
 3. Replace `## What changed and why` with `## Notes` containing the owner's feedback (what felt easy or hard, changed weights). If they used different weights than planned, update the numbers in the history file.
 4. Move the date from `"plans"` to `"history"` in `weeks.json`.
 5. Publish, then offer to "plan next week".
