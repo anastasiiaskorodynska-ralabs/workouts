@@ -11,6 +11,14 @@ The site has a language switch (the EN/UA button on This week, and Language in P
 - Ukrainian style: informal "ти" form, like a trainer talking ("Тримаєш гирю…"). Day headings: `## Вівторок — Низ`, `## Четвер — Верх`, `## Субота — Функціональні кола`; rounds `### Коло 1 — …`; notes sections `## Що змінилося і чому` (plans) and `## Нотатки` (history). Use `кг`, `с`, and `,` as the decimal mark (12,5 кг).
 - If the owner pastes a summary in Ukrainian, use it the same way as an English one.
 
+## Start of every session: get the latest files
+
+The owner can **edit the profile from the app** (Profile → ✎ on a section). Those edits are saved straight to GitHub with a commit "Profile edited in the app", so GitHub can be newer than this folder. **Before reading or changing anything, run `git pull`.**
+
+After pulling, if `profile.md` or `profile.uk.md` changed in the app (check `git log -3 -- profile.md profile.uk.md`), the app only updated the language the owner was using. Translate that change into the other language file, keeping the same structure, then publish. Briefly tell the owner what you synced.
+
+How app editing works: the owner made a GitHub fine-grained access token (only the `workouts` repository, Contents: read and write) and pasted it into the app. It's stored only in the phone's browser. Never ask the owner to share it in chat. If they need a new one (it expires after 1 year), point them to Profile → App settings → "Edit from the app", where the steps are shown. The repository owner/name for saving is set in `REPO` in `app.js`.
+
 ## How the project works
 
 | File / folder | What it is |
@@ -115,7 +123,7 @@ After any change (in PowerShell; the two env vars let the GitHub sign-in window 
 ```
 git add -A
 git commit -m "Short description of the change"
-$env:GIT_TERMINAL_PROMPT = '1'; $env:GCM_INTERACTIVE = 'always'; git push
+$env:GIT_TERMINAL_PROMPT = '1'; $env:GCM_INTERACTIVE = 'always'; git pull --rebase; git push
 ```
 
 **Whenever you change `style.css` or `app.js`, raise the `?v=` number on both in `index.html`** (e.g. `?v=4` → `?v=5`). Otherwise phones keep old cached copies and show a broken mix of old and new (this happened once: missing tab labels and language button).

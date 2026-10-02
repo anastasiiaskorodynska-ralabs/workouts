@@ -51,6 +51,24 @@ const TEXT = {
     error: 'Something went wrong loading your files.',
     sumTitle: iso => `Week of ${iso} — results`,
     sumNotes: 'My notes', sumNotLogged: 'nothing ticked',
+    editHint: 'Tap ✎ on any section to change it.',
+    editLocked: 'To edit your profile here, connect GitHub once in App settings below.',
+    edit: 'Edit', save: 'Save', saving: 'Saving…', cancel: 'Cancel', add: 'Add',
+    saved: 'Saved ✓', saveFail: 'Could not save — check your internet and try again',
+    otherLang: 'Saved in English. Claude will update the Ukrainian version next time.',
+    phLabel: 'Label', phValue: 'Value', phWorkout: 'Workout', phItem: 'New item', phNote: 'Extra note (optional)',
+    ghTitle: 'Edit from the app', ghConnected: 'Connected to GitHub ✓ You can edit your profile.',
+    ghDisconnect: 'Disconnect', ghConnect: 'Connect', ghChecking: 'Checking…',
+    ghOk: 'Connected! You can edit now.', ghBad: 'That key didn’t work. Check the steps and try again.',
+    ghSteps: [
+      'Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens/new</a> and sign in if asked.',
+      'Token name: <b>Workout app</b>. Expiration: <b>1 year</b>.',
+      'Repository access: <b>Only select repositories</b> → choose <b>workouts</b>.',
+      'Under Permissions, add <b>Contents</b> and set it to <b>Read and write</b>.',
+      'Tap <b>Generate token</b>, copy it and paste it below.',
+    ],
+    ghWarn: 'This key is like a password: it stays on this phone only. Never send it to anyone, not even in chat.',
+    ghPlaceholder: 'Paste your key (github_pat_…)',
   },
   uk: {
     thisWeek: 'Цей тиждень', nextWeek: 'Наступний тиждень', plan: 'План', week: 'Тиждень',
@@ -78,6 +96,24 @@ const TEXT = {
     error: 'Не вдалося завантажити файли.',
     sumTitle: iso => `Тиждень від ${iso} — результати`,
     sumNotes: 'Мої нотатки', sumNotLogged: 'нічого не відмічено',
+    editHint: 'Натисни ✎ на будь-якому розділі, щоб змінити його.',
+    editLocked: 'Щоб редагувати профіль тут, один раз підключи GitHub у Налаштуваннях нижче.',
+    edit: 'Змінити', save: 'Зберегти', saving: 'Зберігаю…', cancel: 'Скасувати', add: 'Додати',
+    saved: 'Збережено ✓', saveFail: 'Не вдалося зберегти — перевір інтернет і спробуй ще раз',
+    otherLang: 'Збережено українською. Claude оновить англійську версію наступного разу.',
+    phLabel: 'Назва', phValue: 'Значення', phWorkout: 'Тренування', phItem: 'Новий пункт', phNote: 'Додаткова примітка (необовʼязково)',
+    ghTitle: 'Редагування в застосунку', ghConnected: 'GitHub підключено ✓ Можна редагувати профіль.',
+    ghDisconnect: 'Відключити', ghConnect: 'Підключити', ghChecking: 'Перевіряю…',
+    ghOk: 'Підключено! Тепер можна редагувати.', ghBad: 'Ключ не спрацював. Перевір кроки і спробуй ще раз.',
+    ghSteps: [
+      'Відкрий <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens/new</a> і увійди, якщо попросить.',
+      'Token name: <b>Workout app</b>. Expiration: <b>1 year</b>.',
+      'Repository access: <b>Only select repositories</b> → обери <b>workouts</b>.',
+      'У Permissions додай <b>Contents</b> і постав <b>Read and write</b>.',
+      'Натисни <b>Generate token</b>, скопіюй ключ і встав його нижче.',
+    ],
+    ghWarn: 'Цей ключ — як пароль: він зберігається лише на цьому телефоні. Нікому його не надсилай, навіть у чат.',
+    ghPlaceholder: 'Встав ключ (github_pat_…)',
   },
 };
 
@@ -554,7 +590,7 @@ async function screenHistory() {
   // Key lifts come from the profile's "Key lifts" list.
   let lifts = [];
   try {
-    const sec = profileSections(await getLocalized('profile')).find(x => x.kind === 'keylifts');
+    const sec = profileSections(await loadProfile()).find(x => x.kind === 'keylifts');
     if (sec) lifts = noteParts(sec.lines).bullets;
   } catch { /* no profile */ }
   if (liftPick >= lifts.length) liftPick = 0;
@@ -660,41 +696,173 @@ function profileSections(md) {
 
 const keyVal = b => { const m = b.match(/^\*\*(.+?):?\*\*:?\s*(.*)$/); return m ? { k: m[1].replace(/:$/, ''), v: m[2] } : { k: '', v: b }; };
 
+// ---------- saving the profile to GitHub ----------
+// The site itself can't change files, so edits go through GitHub's API using a key
+// (a fine-grained access token) that the owner pastes into the app once.
+
+const REPO = { owner: 'anastasiiaskorodynska-ralabs', name: 'workouts', branch: 'main' };
+const ghToken = () => store('ghToken');
+const profilePath = () => lang === 'uk' ? 'profile.uk.md' : 'profile.md';
+const profileCache = {}; // path -> { text, sha } read straight from GitHub (always the newest)
+
+function ghFetch(path, opts = {}, token = ghToken()) {
+  return fetch(`https://api.github.com/repos/${REPO.owner}/${REPO.name}/contents/${path}`, {
+    ...opts, cache: 'no-store',
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', ...(opts.headers || {}) },
+  });
+}
+const b64encode = s => { let bin = ''; new TextEncoder().encode(s).forEach(b => { bin += String.fromCharCode(b); }); return btoa(bin); };
+const b64decode = s => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\s/g, '')), c => c.charCodeAt(0)));
+
+// When connected, read the profile from GitHub (the website copy can be a minute behind after a save).
+async function loadProfile() {
+  const path = profilePath();
+  if (ghToken()) {
+    try {
+      if (!profileCache[path]) {
+        const r = await ghFetch(path);
+        if (r.ok) { const j = await r.json(); profileCache[path] = { text: b64decode(j.content), sha: j.sha }; }
+      }
+      if (profileCache[path]) return profileCache[path].text;
+    } catch { /* fall back to the website copy */ }
+  }
+  return getLocalized('profile');
+}
+
+async function saveProfile(text) {
+  const path = profilePath();
+  const latestSha = async () => { const r = await ghFetch(path); return r.ok ? (await r.json()).sha : undefined; };
+  const put = sha => ghFetch(path, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: 'Profile edited in the app', content: b64encode(text), branch: REPO.branch, ...(sha ? { sha } : {}) }),
+  });
+  let sha = profileCache[path] ? profileCache[path].sha : await latestSha();
+  let r = await put(sha);
+  if (r.status === 409 || r.status === 422) r = await put(await latestSha()); // file changed meanwhile: retry on the newest
+  if (!r.ok) throw new Error(r.status === 401 || r.status === 403 || r.status === 404 ? 'auth' : `HTTP ${r.status}`);
+  profileCache[path] = { text, sha: (await r.json()).content.sha };
+  delete fileCache[path];
+}
+
+// ---------- profile screen ----------
+
+let profileState = null; // { head, secs } of the profile being shown
+let editingIdx = null;   // which section is open for editing
+
+const PENCIL = '<svg class="ic" viewBox="0 0 24 24" style="width:20px;height:20px;stroke-width:2.2"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>';
+const clean = s => s.replace(/[\r\n]+/g, ' ').replace(/^#+\s*/, '').trim();
+
+function editRow(type, item = {}) {
+  const del = `<button class="ed-del" data-act="ed-del" aria-label="Remove">✕</button>`;
+  if (type === 'kv') {
+    return `<div class="ed-row"><input data-k value="${esc(item.k || '')}" placeholder="${esc(T().phLabel)}"><input data-v value="${esc(item.v || '')}" placeholder="${esc(T().phValue)}">${del}</div>`;
+  }
+  if (type === 'day') {
+    const names = lang === 'uk' ? DAYS_UK : DAYS;
+    const cur = item.k ? matchDay(item.k) : null;
+    const opts = names.map((n, i) => `<option value="${esc(n)}" ${cur && cur.index === i ? 'selected' : ''}>${esc(n)}</option>`).join('');
+    return `<div class="ed-row"><select data-k>${opts}</select><input data-v value="${esc(item.v || '')}" placeholder="${esc(T().phWorkout)}">${del}</div>`;
+  }
+  return `<div class="ed-row"><input data-v value="${esc(item.v || '')}" placeholder="${esc(T().phItem)}">${del}</div>`;
+}
+
+function editorHtml(sec, i) {
+  const { text, bullets } = noteParts(sec.lines);
+  const rows = (type, items) => `<div class="ed-rows">${items.map(it => editRow(type, it)).join('')}</div>
+    <button class="ed-add" data-act="ed-add" data-type="${type}">+ ${T().add}</button>`;
+  let body;
+  switch (sec.kind) {
+    case 'goal': body = `<textarea data-f="text">${esc(text || bullets.join(', '))}</textarea>`; break;
+    case 'about': body = rows('kv', bullets.map(keyVal)); break;
+    case 'schedule': body = rows('day', bullets.map(keyVal)) + `<input data-f="text" value="${esc(text)}" placeholder="${esc(T().phNote)}">`; break;
+    case 'equipment': case 'rules': case 'limits': case 'keylifts': body = rows('item', bullets.map(v => ({ v }))); break;
+    default: body = `<textarea data-f="text" style="min-height:140px">${esc(sec.lines.join('\n'))}</textarea>`;
+  }
+  return `<section class="card editing" data-sec="${i}">
+    <span class="label">${inline(sec.title)}</span>
+    ${body}
+    <p class="hint">${T().otherLang}</p>
+    <div class="ed-actions">
+      <button class="btn sec" data-act="ed-cancel">${T().cancel}</button>
+      <button class="btn" data-act="ed-save">${T().save}</button>
+    </div>
+  </section>`;
+}
+
+// Reads the edit form back into Markdown lines for that section.
+function collectSection(form, sec) {
+  const rows = [...form.querySelectorAll('.ed-row')].map(r => ({
+    k: clean((r.querySelector('[data-k]') || {}).value || ''),
+    v: clean((r.querySelector('[data-v]') || {}).value || ''),
+  }));
+  const textEl = form.querySelector('[data-f="text"]');
+  const text = textEl ? textEl.value.trim() : '';
+  switch (sec.kind) {
+    case 'goal': return [clean(text)];
+    case 'about': return rows.filter(r => r.k || r.v).map(r => `- **${r.k}:** ${r.v}`);
+    case 'schedule': {
+      const lines = rows.filter(r => r.v).map(r => `- **${r.k}:** ${r.v}`);
+      return text ? [...lines, '', clean(text)] : lines;
+    }
+    case 'equipment': case 'rules': case 'limits': case 'keylifts':
+      return rows.filter(r => r.v).map(r => `- ${r.v}`);
+    default: return text.split(/\r?\n/).map(l => l.replace(/^#+\s/, ''));
+  }
+}
+
+const profileToMd = ({ head, secs }) => `# ${head}\n\n${secs.map(s => `## ${s.title}\n${s.lines.join('\n')}`).join('\n\n')}\n`;
+
 async function screenProfile() {
-  const secs = profileSections(await getLocalized('profile'));
-  const card = (title, inner, cls = '') => `<section class="card"><span class="label${cls}">${inline(title)}</span>${inner}</section>`;
-  const html = secs.map(sec => {
+  const md = await loadProfile();
+  const secs = profileSections(md);
+  const headLine = md.split(/\r?\n/).find(l => l.startsWith('# '));
+  profileState = { head: headLine ? headLine.slice(2).trim() : T().profile, secs };
+  const canEdit = !!ghToken();
+  const card = (title, inner, cls = '', i) => `<section class="card">
+    <div class="card-head"><span class="label${cls}">${inline(title)}</span>
+    ${canEdit ? `<button class="edit-btn" data-act="ed-open" data-i="${i}" aria-label="${esc(T().edit)}">${PENCIL}</button>` : ''}</div>${inner}</section>`;
+  const html = secs.map((sec, i) => {
+    if (i === editingIdx) return editorHtml(sec, i);
     const { text, bullets } = noteParts(sec.lines);
+    const card_ = (inner, cls = '') => card(sec.title, inner, cls, i);
     switch (sec.kind) {
-      case 'goal': return card(sec.title, `<span class="goal">${inline(text || bullets.join(', '))}</span>`);
-      case 'about': return card(sec.title, `<div class="about">${bullets.map(b => {
+      case 'goal': return card_(`<span class="goal">${inline(text || bullets.join(', '))}</span>`);
+      case 'about': return card_(`<div class="about">${bullets.map(b => {
         const { k, v } = keyVal(b);
         return `<div><span class="label">${inline(k)}</span><b class="${v.length > 6 ? 'txt' : ''}">${inline(v)}</b></div>`;
       }).join('')}</div>`);
       case 'schedule': {
         const on = new Set();
         const lines = bullets.map(b => { const { k, v } = keyVal(b); const d = matchDay(k); if (d) on.add(d.index); return `<div><b>${inline(k)}</b> — ${inline(v)}</div>`; });
-        return card(sec.title, `<div class="weekdays">${T().days3.map((l, i) => `<div class="${on.has(i) ? 'on' : ''}">${l}</div>`).join('')}</div>
+        return card_(`<div class="weekdays">${T().days3.map((l, i) => `<div class="${on.has(i) ? 'on' : ''}">${l}</div>`).join('')}</div>
           <div class="sched">${lines.join('')}</div>${text ? `<span class="strong">${inline(text)}</span>` : ''}`);
       }
       case 'equipment':
-      case 'keylifts': return card(sec.title, `<div class="tags">${bullets.map(b => `<span>${inline(b)}</span>`).join('')}</div>`);
-      case 'rules': return card(sec.title, `<div class="rows">${bullets.map(b => `<div class="row">${inline(b)}</div>`).join('')}</div>`);
+      case 'keylifts': return card_(`<div class="tags">${bullets.map(b => `<span>${inline(b)}</span>`).join('')}</div>`);
+      case 'rules': return card_(`<div class="rows">${bullets.map(b => `<div class="row">${inline(b)}</div>`).join('')}</div>`);
       case 'limits': {
         const none = bullets.length === 1 && /^(no |none|немає|зараз травм)/i.test(bullets[0]);
-        return card(sec.title, `<div class="rows">${bullets.map(b => `<div class="row ${none ? 'ok' : 'warn'}">${inline(b)}</div>`).join('')}</div>`, none ? '' : ' warn');
+        return card_(`<div class="rows">${bullets.map(b => `<div class="row ${none ? 'ok' : 'warn'}">${inline(b)}</div>`).join('')}</div>`, none ? '' : ' warn');
       }
-      default: return card(sec.title, `<div class="md">${text ? `<p>${inline(text)}</p>` : ''}${bullets.length ? `<ul>${bullets.map(b => `<li>${inline(b)}</li>`).join('')}</ul>` : ''}</div>`);
+      default: return card_(`<div class="md">${text ? `<p>${inline(text)}</p>` : ''}${bullets.length ? `<ul>${bullets.map(b => `<li>${inline(b)}</li>`).join('')}</ul>` : ''}</div>`);
     }
   }).join('');
 
   const seg = (cur, val, label, act) => `<button data-act="${act}" data-v="${val}" aria-pressed="${cur === val}">${label}</button>`;
   app.innerHTML = `<div class="screen">
     <h1 class="title">${T().profile}</h1>
-    <div class="lock">${ICON.lock}<span>${T().readOnly}</span></div>
+    <div class="lock">${canEdit ? PENCIL : ICON.lock}<span>${canEdit ? T().editHint : T().editLocked}</span></div>
     ${html}
     <span class="label section-label">${T().settings}</span>
     <section class="card" style="gap:16px">
+      <div class="stack" style="gap:8px"><span class="strong">${T().ghTitle}</span>
+        ${canEdit
+          ? `<div class="row ok">${T().ghConnected}</div><button class="btn sec" data-act="gh-disconnect">${T().ghDisconnect}</button>`
+          : `<ol class="steps">${T().ghSteps.map(s => `<li>${s}</li>`).join('')}</ol>
+             <p class="hint">${T().ghWarn}</p>
+             <input type="password" data-f="token" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${esc(T().ghPlaceholder)}">
+             <button class="btn" data-act="gh-connect">${T().ghConnect}</button>`}
+      </div>
       <div class="stack" style="gap:8px"><span class="strong">${T().language}</span>
         <div class="segctl">${seg(lang, 'en', 'English', 'lang')}${seg(lang, 'uk', 'Українська', 'lang')}</div></div>
       <div class="stack" style="gap:8px"><span class="strong">${T().theme}</span>
@@ -763,6 +931,7 @@ document.addEventListener('click', async e => {
   } else if (act === 'copy') {
     toast((await copy(await summaryText(el.dataset.iso))) ? T().copied : T().copyFail);
   } else if (act === 'toggle-lang' || act === 'lang') {
+    editingIdx = null;
     lang = act === 'lang' ? el.dataset.v : (lang === 'en' ? 'uk' : 'en');
     store('lang', lang); applySettings(); route(true);
   } else if (act === 'theme') {
@@ -774,6 +943,48 @@ document.addEventListener('click', async e => {
     route(true);
   } else if (act === 'lift') {
     liftPick = Number(el.dataset.i); route(true);
+  } else if (act === 'ed-open') {
+    editingIdx = Number(el.dataset.i); await route(true);
+    const f = app.querySelector('.editing input, .editing textarea, .editing select');
+    if (f) f.focus();
+  } else if (act === 'ed-cancel') {
+    editingIdx = null; route(true);
+  } else if (act === 'ed-add') {
+    const box = el.closest('.card').querySelector('.ed-rows');
+    box.insertAdjacentHTML('beforeend', editRow(el.dataset.type));
+    const inputs = box.querySelectorAll('.ed-row:last-child input');
+    if (inputs.length) inputs[0].focus();
+  } else if (act === 'ed-del') {
+    el.closest('.ed-row').remove();
+  } else if (act === 'ed-save') {
+    const form = el.closest('.card');
+    const sec = profileState.secs[Number(form.dataset.sec)];
+    const before = sec.lines;
+    sec.lines = collectSection(form, sec);
+    el.disabled = true; el.textContent = T().saving;
+    try {
+      await saveProfile(profileToMd(profileState));
+      editingIdx = null;
+      toast(T().saved);
+      route(true);
+    } catch (err) {
+      sec.lines = before;
+      el.disabled = false; el.textContent = T().save;
+      toast(err.message === 'auth' ? T().ghBad : T().saveFail);
+    }
+  } else if (act === 'gh-connect') {
+    const input = app.querySelector('[data-f="token"]');
+    const token = input.value.trim();
+    if (!token) { input.focus(); return; }
+    el.disabled = true; el.textContent = T().ghChecking;
+    let ok = false;
+    try { ok = (await ghFetch('profile.md', {}, token)).ok; } catch { /* offline */ }
+    if (ok) { store('ghToken', token); toast(T().ghOk); route(true); }
+    else { el.disabled = false; el.textContent = T().ghConnect; toast(T().ghBad); }
+  } else if (act === 'gh-disconnect') {
+    try { localStorage.removeItem('ghToken'); } catch { /* ignore */ }
+    Object.keys(profileCache).forEach(k => delete profileCache[k]);
+    editingIdx = null; route(true);
   }
 });
 
@@ -787,6 +998,7 @@ document.addEventListener('input', e => {
 async function route(keepScroll = false) {
   const hash = location.hash.replace(/^#/, '') || '/';
   const y = window.scrollY;
+  if (hash !== '/profile') editingIdx = null;
   const tab = /^\/(history|h\/)/.test(hash) ? 'history' : hash.startsWith('/profile') ? 'profile' : 'week';
   document.querySelectorAll('.tabs a').forEach(a => a.classList.toggle('active', a.dataset.tab === tab));
   overlay.innerHTML = '';

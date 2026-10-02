@@ -278,6 +278,31 @@ body.workout .tabs { display: none; }
 .about div { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .about b { font: 800 22px/1.1 Unbounded, sans-serif; overflow-wrap: anywhere; }
 .about b.txt { font: 700 17px/1.2 Onest, sans-serif; }
+/* Profile editing */
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 24px; }
+.edit-btn { all: unset; cursor: pointer; flex: none; width: 48px; height: 48px; margin: -12px -10px -12px 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--mute); }
+.edit-btn:active { background: var(--s2); }
+.card.editing { border: 2px solid var(--accText); }
+.ed-rows { display: flex; flex-direction: column; gap: 8px; }
+.ed-row { display: flex; gap: 8px; align-items: center; }
+.ed-row input, .ed-row select { flex: 1; min-width: 0; }
+.ed-row input[data-k] { flex: 0 0 38%; }
+.card .ed-row select[data-k] { flex: 0 0 46%; padding: 0 8px 0 12px; }
+.card input, .card select {
+  height: 52px; padding: 0 14px; width: 100%;
+  font: 500 16px Onest, sans-serif; color: var(--text); background: var(--s2);
+  border: 1.5px solid var(--line); border-radius: 14px;
+}
+.card input:focus, .card select:focus { outline: none; border-color: var(--accText); }
+.ed-del { all: unset; cursor: pointer; flex: none; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--mute); font-size: 16px; }
+.ed-del:active { background: var(--warnBg); color: var(--warn); }
+.ed-add { all: unset; cursor: pointer; align-self: flex-start; min-height: 48px; padding: 0 16px; border-radius: 14px; border: 1.5px dashed var(--line); display: flex; align-items: center; font: 700 15px Onest, sans-serif; color: var(--accText); }
+.ed-actions { display: flex; gap: 10px; }
+.ed-actions .btn { height: 56px; font-size: 17px; }
+.btn.sec { background: var(--s2); color: var(--text); }
+.btn:disabled { opacity: .6; }
+.steps { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; font: 500 15px/1.45 Onest, sans-serif; }
+.steps a { color: var(--accText); text-decoration: underline; overflow-wrap: anywhere; }
 .md p { margin: 0 0 6px; }
 .md ul { margin: 0; padding-left: 20px; }
 .foot { text-align: center; font: 500 14px Onest, sans-serif; color: var(--mute); padding-top: 4px; }
