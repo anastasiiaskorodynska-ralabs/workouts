@@ -12,7 +12,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=Unbounded:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <!-- The ?v= number makes phones download fresh copies. Raise it after every change to style.css or app.js. -->
+  <link rel="stylesheet" href="style.css?v=4">
   <script>
     // Apply the saved theme before the page draws, so it doesn't flash.
     try { if (JSON.parse(localStorage.getItem('theme')) === 'light') document.documentElement.dataset.theme = 'light'; } catch (e) {}
@@ -38,6 +39,6 @@
     </a>
   </nav>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>

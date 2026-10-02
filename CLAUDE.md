@@ -118,6 +118,8 @@ git commit -m "Short description of the change"
 $env:GIT_TERMINAL_PROMPT = '1'; $env:GCM_INTERACTIVE = 'always'; git push
 ```
 
+**Whenever you change `style.css` or `app.js`, raise the `?v=` number on both in `index.html`** (e.g. `?v=4` → `?v=5`). Otherwise phones keep old cached copies and show a broken mix of old and new (this happened once: missing tab labels and language button).
+
 The phone shows the new version about 1 minute later (pull down to refresh). If the push fails because of login, ask the owner to run `gh auth login` in the terminal and walk them through it step by step.
 
 ## Previewing locally
